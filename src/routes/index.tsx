@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ArrowUpRight, Menu, Search, ShoppingBag, X } from "lucide-react";
 import { Wordmark } from "@/components/Wordmark";
+import { Intro } from "@/components/Intro";
 import { ProductCard } from "@/components/ProductCard";
 import { allCats, bestSellers, categories, images, newDrops } from "@/lib/products";
 
@@ -43,6 +44,7 @@ function Index() {
 
   return (
     <div className="overflow-x-hidden">
+      <Intro />
       {/* ticker */}
       <div className="overflow-hidden bg-primary py-2 font-mono text-[11px] tracking-[0.3em] text-primary-foreground">
         <div className="flex w-max animate-marquee gap-10 whitespace-nowrap">
