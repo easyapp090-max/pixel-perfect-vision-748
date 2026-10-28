@@ -1,0 +1,5 @@
+-- Apply the versioned migrations in supabase/migrations in numeric order.
+-- This file is intentionally not a second schema definition: keeping a
+-- hand-maintained duplicate here could bypass the security policies.
+-- After the migrations, follow supabase/first-owner.sql once to bootstrap
+-- the first trusted store owner.

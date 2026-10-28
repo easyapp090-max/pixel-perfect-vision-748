@@ -14,4 +14,18 @@ describe("App routing", () => {
 
     expect(matches.at(-1)?.routeId).not.toBe(rootRouteId);
   });
+
+  it("keeps admin login as a child page while /admin remains the dashboard route", () => {
+    const router = createRouter({ routeTree, context: { queryClient: new QueryClient() } });
+
+    const loginMatches = router.matchRoutes("/admin/login");
+    const adminMatches = router.matchRoutes("/admin");
+
+    expect(loginMatches.map((match) => match.routeId)).toEqual([
+      "__root__",
+      "/admin",
+      "/admin/login",
+    ]);
+    expect(adminMatches.at(-1)?.routeId).toBe("/admin/");
+  });
 });

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title>5ADSH</title>
+  <rect width="64" height="64" rx="10" fill="#111111"/>
+  <path
+    d="M14 10h37v10H25v7h11c11 0 17 5 17 14s-7 13-18 13H14V43h21c5 0 7-1 7-4s-2-4-7-4H14V10Z"
+    fill="#f5f2ed"
+  />
+  <path d="M9 49 55 24" fill="none" stroke="#111111" stroke-width="5" stroke-linecap="square" />
+  <path d="M13 53 58 29" fill="none" stroke="#f5f2ed" stroke-width="1.5" stroke-linecap="square" />
+</svg>
