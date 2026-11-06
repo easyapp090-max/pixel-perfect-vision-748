@@ -152,7 +152,7 @@ function Index() {
                   .join(" ")}
               >
                 <img
-                  src={category.image}
+                  src={category.image || siteImages.hero}
                   alt={category.name}
                   loading="lazy"
                   className="absolute inset-0 h-full w-full object-cover grayscale transition duration-700 group-hover:scale-105"
