@@ -1,14 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Menu, Search, ShoppingBag, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Intro } from "@/components/Intro";
+import { CategoryEditorial } from "@/components/CategoryEditorial";
 import { ProductCard } from "@/components/ProductCard";
 import { StorefrontDataNotice } from "@/components/StorefrontDataNotice";
 import { Wordmark } from "@/components/Wordmark";
 import { useStorefrontData } from "@/hooks/use-storefront-data";
 import { addCartItem, getCartCount } from "@/lib/cart";
 import { siteImages } from "@/lib/store-data";
+import reference from "@/assets/reference.png";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -31,7 +33,8 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const { products, categories, homepage, status, error } = useStorefrontData();
+  const { products, homepage, status, error } = useStorefrontData();
+  const [menu, setMenu] = useState(false);
   const [cartCount, setCartCount] = useState(getCartCount());
   const [toast, setToast] = useState(false);
   const newDrops = products.filter((product) => product.newArrival || product.featured);
@@ -71,8 +74,13 @@ function Index() {
         <div className="flex w-max animate-marquee gap-10 whitespace-nowrap">
           {Array.from({ length: 2 }).map((_, key) => (
             <span key={key} className="flex gap-10">
-              {homepage.tickerMessages.map((item, index) => (
-                <span key={`${item}-${index}`}>/// {item}</span>
+              {[
+                homepage.announcement || "FREE SHIPPING ACROSS EGYPT OVER EGP 2,000",
+                "DROP 07 — OUT NOW",
+                "خدش مش عيب",
+                "LEAVE A MARK",
+              ].map((item) => (
+                <span key={item}>/// {item}</span>
               ))}
             </span>
           ))}
@@ -83,6 +91,88 @@ function Index() {
         <StorefrontDataNotice status={status} error={error} />
       </div>
 
+      <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur">
+        <div className="mx-auto flex max-w-[1600px] items-center justify-between px-4 py-3 md:px-8">
+          <nav className="hidden gap-6 font-mono text-xs tracking-widest md:flex">
+            {[
+              ["MEN", "/products/men"],
+              ["WOMEN", "/products/women"],
+              ["KIDS", "/products/kids"],
+              ["DROPS", "/products/new-drops"],
+            ].map(([label, href]) => (
+              <Link
+                key={label}
+                to={href as string}
+                className="relative after:absolute after:-bottom-1 after:left-0 after:h-px after:w-0 after:bg-foreground after:transition-all hover:after:w-full"
+              >
+                {label}
+              </Link>
+            ))}
+          </nav>
+
+          <button className="md:hidden" onClick={() => setMenu(true)} aria-label="Menu">
+            <Menu />
+          </button>
+
+          <Link to="/" aria-label="5ADSH home">
+            <Wordmark className="text-3xl md:text-4xl" />
+          </Link>
+
+          <div className="flex items-center gap-5">
+            <Link to="/products" aria-label="Search products">
+              <Search className="hidden h-5 w-5 md:block" />
+            </Link>
+            <Link to="/cart" className="relative" aria-label="Cart">
+              <ShoppingBag className="h-5 w-5" />
+              <span className="absolute -right-2 -top-2 grid h-4 min-w-4 place-items-center bg-primary px-1 font-mono text-[9px] text-primary-foreground">
+                {cartCount}
+              </span>
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {menu && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-primary p-6 text-primary-foreground animate-rise">
+          <button className="self-end" onClick={() => setMenu(false)} aria-label="Close">
+            <X />
+          </button>
+          <div className="mt-8 flex flex-col gap-2">
+            {[
+              { label: "Home", href: "/" },
+              { label: "All products", href: "/products" },
+              { label: "Men", category: "men" },
+              { label: "Women", category: "women" },
+              { label: "Kids", category: "kids" },
+              { label: "Drops", category: "new-drops" },
+              { label: "Cart", href: "/cart" },
+              { label: "Admin", href: "/admin" },
+            ].map((item) =>
+              "category" in item ? (
+                <Link
+                  key={item.label}
+                  to="/products/$category"
+                  params={{ category: item.category }}
+                  onClick={() => setMenu(false)}
+                  className="font-display text-4xl uppercase"
+                >
+                  {item.label}
+                </Link>
+              ) : (
+                <Link
+                  key={item.label}
+                  to={item.href}
+                  onClick={() => setMenu(false)}
+                  className="font-display text-4xl uppercase"
+                >
+                  {item.label}
+                </Link>
+              ),
+            )}
+          </div>
+        </div>
+      )}
+
       <section className="relative mx-auto max-w-[1600px] px-4 pb-16 pt-6 md:px-8">
         <div className="pointer-events-none relative z-10 leading-[0.8]">
           <Wordmark animate arabic={false} className="text-[27vw] md:text-[24vw] xl:text-[380px]" />
@@ -91,7 +181,7 @@ function Index() {
           <div className="relative md:col-span-5 md:col-start-6 md:row-span-2">
             <div className="grain aspect-[4/5] overflow-hidden">
               <img
-                src={siteImages.hero}
+                src={reference}
                 alt="5ADSH campaign — Drop 07"
                 width={1280}
                 height={1600}
@@ -131,68 +221,9 @@ function Index() {
         </div>
       </section>
 
-      <section id="cats" className="bg-primary py-20 text-primary-foreground">
-        <div className="mx-auto max-w-[1600px] px-4 md:px-8">
-          <SectionHead n="02" title="Categories" ar="الأقسام" />
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-12 md:gap-4">
-            {categories.map((category, index) => (
-              <Link
-                key={category.name}
-                to="/products/$category"
-                params={{ category: category.slug }}
-                className={[
-                  "group relative overflow-hidden",
-                  index === 0 &&
-                    "col-span-2 aspect-[4/3] md:col-span-7 md:row-span-2 md:aspect-auto",
-                  index === 1 && "aspect-[3/4] md:col-span-5 md:aspect-[5/4]",
-                  index === 2 && "aspect-[3/4] md:col-span-3 md:aspect-square",
-                  index === 3 && "col-span-2 aspect-[2/1] md:col-span-2 md:aspect-auto",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-              >
-                <img
-                  src={category.image || siteImages.hero}
-                  alt={category.name}
-                  loading="lazy"
-                  className="absolute inset-0 h-full w-full object-cover grayscale transition duration-700 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-ink/80 via-transparent" />
-                <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between">
-                  <span className="font-display text-4xl uppercase md:text-6xl">
-                    {category.name}
-                  </span>
-                  <span className="font-arabic text-2xl">{category.arabic}</span>
-                </div>
-              </Link>
-            ))}
-          </div>
-          <div className="mt-8 flex flex-wrap gap-2">
-            {[
-              "Men",
-              "Women",
-              "Kids",
-              "T-Shirts",
-              "Shirts",
-              "Pants",
-              "Jeans",
-              "Dresses",
-              "Jackets",
-              "Shoes",
-              "Accessories",
-            ].map((item) => (
-              <Link
-                key={item}
-                to="/products/$category"
-                params={{ category: item.toLowerCase() }}
-                className="border border-primary-foreground/30 px-4 py-2 font-mono text-xs uppercase tracking-widest transition hover:bg-primary-foreground hover:text-primary"
-              >
-                {item}
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
+      <div id="cats">
+        <CategoryEditorial />
+      </div>
 
       <section id="drops" className="mx-auto max-w-[1600px] px-4 py-20 md:px-8">
         <SectionHead n="03" title="New Drops" ar="جديد" />
@@ -292,6 +323,71 @@ function Index() {
           </div>
         </div>
       </section>
+
+      <footer className="bg-primary px-4 pt-16 text-primary-foreground md:px-8">
+        <div className="mx-auto max-w-[1600px]">
+          <div className="grid gap-10 border-b border-primary-foreground/20 pb-12 md:grid-cols-4">
+            <div className="md:col-span-2">
+              <p className="font-display text-3xl uppercase">Get scratched first.</p>
+              <form
+                onSubmit={(event) => event.preventDefault()}
+                className="mt-4 flex max-w-md border border-primary-foreground/40"
+              >
+                <input
+                  placeholder="EMAIL"
+                  className="flex-1 bg-transparent px-4 py-3 font-mono text-sm outline-none placeholder:text-primary-foreground/50"
+                />
+                <button className="bg-primary-foreground px-5 font-mono text-xs text-primary">
+                  JOIN
+                </button>
+              </form>
+            </div>
+            <ul className="space-y-2 font-mono text-xs tracking-widest opacity-70">
+              {(
+                [
+                  ["Shipping", "/shipping"],
+                  ["Returns", "/returns"],
+                  ["Size guide", "/size-guide"],
+                  ["Contact", "/contact"],
+                ] as const
+              ).map(([label, href]) => (
+                <li key={label}>
+                  <Link to={href}>{label.toUpperCase()}</Link>
+                </li>
+              ))}
+            </ul>
+            <ul className="space-y-2 font-mono text-xs tracking-widest opacity-70">
+              {(
+                [
+                  ["Instagram", "https://instagram.com"],
+                  ["TikTok", "https://tiktok.com"],
+                  ["Cairo, EG", "/contact"],
+                ] as const
+              ).map(([label, href]) => (
+                <li key={label}>
+                  {href.startsWith("http") ? (
+                    <a href={href} target="_blank" rel="noreferrer">
+                      {label.toUpperCase()}
+                    </a>
+                  ) : (
+                    <Link to="/contact">{label.toUpperCase()}</Link>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <Link
+            to="/"
+            aria-label="5ADSH home"
+            className="relative block py-6 leading-[0.8] [--background:var(--ink)]"
+          >
+            <Wordmark arabic={false} className="text-[27vw] xl:text-[420px]" />
+          </Link>
+          <p className="pb-6 font-mono text-[10px] tracking-widest opacity-50">
+            © 2026 5ADSH — خدش. ALL MARKS RESERVED.
+          </p>
+        </div>
+      </footer>
 
       {toast && (
         <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 bg-primary px-6 py-3 font-mono text-xs tracking-widest text-primary-foreground animate-rise">

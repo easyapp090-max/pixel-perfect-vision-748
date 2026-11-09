@@ -4,9 +4,18 @@ import women from "@/assets/women.jpg";
 import acc from "@/assets/acc.jpg";
 import tee from "@/assets/tee.jpg";
 import jeans from "@/assets/jeans.jpg";
+import fahd from "@/assets/fahd.jpg";
 import type { StorePermission } from "@/lib/auth";
 
-export const siteImages = { hero, men, women, acc, tee, jeans };
+export const siteImages = { hero, men, women, acc, tee, jeans, fahd };
+
+export type CategoryDefinition = {
+  name: string;
+  slug: string;
+  arabic: string;
+  image: string;
+  tone?: string;
+};
 
 export type ProductVariant = {
   id: string;
@@ -395,24 +404,32 @@ export const allCategorySlugs = [
   "shoes",
   "accessories",
   "new-drops",
-  "collections",
+  "coming-soon",
 ];
+
+export function normalizeCategory(value: string) {
+  return decodeURIComponent(value).trim().toLowerCase().replace(/\s+/g, "-");
+}
+
+export function productMatchesCategory(product: StoreProduct, category: string) {
+  const normalized = normalizeCategory(category);
+  if (normalized === "all") return true;
+  if (normalized === "new-drops") return Boolean(product.newArrival || product.featured);
+  if (normalized === "coming-soon") return false;
+  const productCategory = normalizeCategory(product.category);
+  const productSubcategory = normalizeCategory(product.subcategory);
+  if (productCategory === normalized || productSubcategory === normalized) return true;
+  return productCategory.replace(/s$/, "") === normalized.replace(/s$/, "");
+}
 
 export function getProductBySlug(slug: string) {
   return storeProducts.find((product) => product.slug === slug);
 }
 
 export function getProductsByCategory(category: string) {
-  const lower = category.toLowerCase();
-  if (lower === "all" || !category) return storeProducts;
-  return storeProducts.filter((product) => {
-    const matchesCategory =
-      product.category.toLowerCase() === lower || product.subcategory.toLowerCase() === lower;
-    const matchesGender =
-      product.category.toLowerCase() === lower ||
-      product.category.toLowerCase().replace(/s$/, "") === lower;
-    return matchesCategory || matchesGender;
-  });
+  return !category || normalizeCategory(category) === "all"
+    ? storeProducts
+    : storeProducts.filter((product) => productMatchesCategory(product, category));
 }
 
 export function getProductVariant(product: StoreProduct, size: string, color: string) {
