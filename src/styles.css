@@ -78,6 +78,74 @@
 }
 
 @layer components {
+  .admin-dashboard {
+    background-image: radial-gradient(oklch(0.13 0 0 / 5%) 0.6px, transparent 0.6px);
+    background-size: 8px 8px;
+  }
+
+  .admin-dashboard .admin-hero {
+    isolation: isolate;
+    overflow: hidden;
+    border-color: oklch(0.13 0 0 / 20%);
+    border-left: 6px solid #d94b2b;
+    background: linear-gradient(118deg, #171717 0%, #272522 68%, #482b22 100%);
+    color: #f5f2ea;
+  }
+
+  .admin-dashboard .admin-hero::after {
+    position: absolute;
+    z-index: -1;
+    right: -0.035em;
+    bottom: -0.42em;
+    color: rgb(255 255 255 / 5%);
+    content: "5A";
+    font-family: var(--font-display);
+    font-size: clamp(10rem, 32vw, 27rem);
+    line-height: 0.8;
+    pointer-events: none;
+  }
+
+  .admin-dashboard .admin-hero .text-muted-foreground {
+    color: rgb(245 242 234 / 65%);
+  }
+
+  .admin-dashboard .admin-tabs button[aria-pressed="true"] {
+    border-bottom: 3px solid #d94b2b;
+  }
+
+  .admin-dashboard .admin-table th {
+    background: oklch(0.13 0 0 / 4%);
+    color: oklch(0.13 0 0 / 58%);
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    padding: 0.9rem 1rem;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .admin-dashboard .admin-table td {
+    border-top: 1px solid oklch(0.13 0 0 / 9%);
+    padding: 0.9rem 1rem;
+    vertical-align: middle;
+  }
+
+  .admin-dashboard .admin-table tbody tr {
+    transition: background-color 160ms ease;
+  }
+
+  .admin-dashboard .admin-table tbody tr:hover {
+    background-color: oklch(0.13 0 0 / 3%);
+  }
+
+  .admin-dashboard input:focus-visible,
+  .admin-dashboard textarea:focus-visible,
+  .admin-dashboard select:focus-visible {
+    outline: 2px solid #d94b2b;
+    outline-offset: 2px;
+  }
+
   .admin-dashboard button {
     transition:
       background-color 180ms ease,
@@ -119,6 +187,65 @@
     transform: translateY(-3px);
     border-color: var(--foreground);
     box-shadow: 0 12px 28px oklch(0.13 0 0 / 10%);
+  }
+
+  .admin-dashboard .admin-workspace-page {
+    overflow: hidden;
+    border: 1px solid oklch(0.13 0 0 / 14%);
+    background: linear-gradient(135deg, oklch(0.13 0 0 / 2%), transparent 42%), var(--color-card);
+    box-shadow: 0 12px 34px oklch(0.13 0 0 / 6%);
+  }
+
+  .admin-dashboard .admin-workspace-heading {
+    border-bottom: 1px solid oklch(0.13 0 0 / 12%);
+    padding: clamp(1.25rem, 3vw, 2.5rem);
+  }
+
+  .admin-dashboard .admin-workspace-body {
+    padding: clamp(1.25rem, 3vw, 2.5rem);
+  }
+
+  .admin-dashboard .admin-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.75rem;
+    border: 1px solid oklch(0.13 0 0 / 15%);
+    padding: 0.65rem 0.85rem;
+    color: oklch(0.13 0 0 / 68%);
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  .admin-dashboard .admin-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+    gap: 0.75rem;
+  }
+
+  .admin-dashboard .admin-detail-card {
+    min-width: 0;
+    border: 1px solid oklch(0.13 0 0 / 10%);
+    background: oklch(0.96 0.008 85 / 65%);
+    padding: 1rem;
+  }
+
+  .admin-dashboard .admin-detail-label {
+    color: oklch(0.13 0 0 / 52%);
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .admin-dashboard .admin-table tbody tr td:first-child {
+    color: var(--foreground);
+  }
+
+  .admin-dashboard .admin-table tbody tr td:first-child button:hover {
+    color: #b83e25;
   }
 }
 

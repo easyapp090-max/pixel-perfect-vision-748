@@ -1,3 +1,6 @@
+import { createClient } from "@supabase/supabase-js";
+
+import { getSupabaseConfig, isSecureBackendConfigured } from "@/lib/backend-config";
 import { getSupabaseClient } from "@/lib/supabase";
 import { getSafeAuthError } from "@/lib/user-messages";
 
@@ -164,6 +167,38 @@ export async function registerCustomer(input: {
     message: "Account created successfully.",
     ...(user ? { user } : {}),
   };
+}
+
+export async function inviteCustomerByEmail(input: {
+  fullName: string;
+  email: string;
+  phone: string;
+}): Promise<void> {
+  const fullName = input.fullName.trim();
+  const email = input.email.trim().toLowerCase();
+  const phone = input.phone.trim();
+  if (!fullName || !email || !phone) {
+    throw new Error("Enter the customer's name, email, and phone number.");
+  }
+  if (!isSecureBackendConfigured()) throw new Error("Supabase is not configured.");
+
+  const { url, key } = getSupabaseConfig();
+  const invitationClient = createClient(url, key, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+  });
+  const { error } = await invitationClient.auth.signInWithOtp({
+    email,
+    options: {
+      shouldCreateUser: true,
+      data: { full_name: fullName, phone },
+      emailRedirectTo: `${window.location.origin}/account`,
+    },
+  });
+  if (error) throw new Error(getSafeAuthError(error));
 }
 
 export async function signInCustomer(email: string, password: string): Promise<AuthResult> {

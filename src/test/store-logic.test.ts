@@ -12,6 +12,8 @@ import {
   ORDER_TRACKING_ERROR_MESSAGE,
   validateOrderTrackingInput,
 } from "@/lib/store-api";
+import { buildSalesReport } from "@/lib/admin-reports";
+import type { OrderRecord } from "@/lib/cart";
 import { clampProductQuantity, storeProducts } from "@/lib/store-data";
 import {
   createInitialStorefrontData,
@@ -188,6 +190,67 @@ describe("store logic", () => {
     expect(storeProducts.length).toBeGreaterThan(0);
     expect(initialLiveState.status).toBe("loading");
     expect(initialLiveState.products).toEqual([]);
+  });
+
+  it("reports non-cancelled sales and only calculates profit from saved item costs", () => {
+    const now = new Date(2026, 2, 15, 12);
+    const baseOrder: OrderRecord = {
+      id: "order-tracked",
+      createdAt: now.toISOString(),
+      status: "Delivered",
+      customer: {
+        fullName: "Test Customer",
+        phone: "01000000000",
+        governorate: "Cairo",
+        city: "Cairo",
+        address: "Test address",
+        notes: "",
+        deliveryMethod: "Standard delivery",
+        paymentMethod: "Cash on delivery",
+      },
+      items: [
+        {
+          id: "item-tracked",
+          productId: "product-1",
+          name: "Test product",
+          slug: "test-product",
+          price: 200,
+          image: "",
+          size: "M",
+          color: "Black",
+          quantity: 2,
+          unitCost: 50,
+        },
+      ],
+      subtotal: 400,
+      discount: 0,
+      shipping: 0,
+      total: 400,
+      paymentMethod: "Cash on delivery",
+      paymentStatus: "Completed",
+      deliveryMethod: "Standard delivery",
+      tracking: "",
+    };
+    const report = buildSalesReport(
+      [
+        baseOrder,
+        {
+          ...baseOrder,
+          id: "order-without-cost",
+          total: 200,
+          items: [{ ...baseOrder.items[0]!, id: "item-without-cost", unitCost: null }],
+        },
+        { ...baseOrder, id: "order-cancelled", status: "Cancelled" },
+      ],
+      now,
+    );
+
+    expect(report.sales).toBe(600);
+    expect(report.profit).toBe(300);
+    expect(report.orders).toBe(2);
+    expect(report.costTrackedOrders).toBe(1);
+    expect(report.ordersWithoutCosts).toBe(1);
+    expect(report.days).toHaveLength(30);
   });
 
   it("shows all products on audience pages and featured or new products on Drops", () => {

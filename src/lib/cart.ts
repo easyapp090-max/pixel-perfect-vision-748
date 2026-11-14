@@ -8,6 +8,7 @@ export type CartItem = {
   size: string;
   color: string;
   quantity: number;
+  unitCost?: number | null;
 };
 
 export type CartLine = {

@@ -1,12 +1,12 @@
-import type {
-  CustomerProfile,
+import {
   defaultTickerMessages,
-  HomepageContent,
-  PromoCode,
-  StoreCategory,
-  StoreCollection,
-  StoreProduct,
-  StoreSettings,
+  type CustomerProfile,
+  type HomepageContent,
+  type PromoCode,
+  type StoreCategory,
+  type StoreCollection,
+  type StoreProduct,
+  type StoreSettings,
 } from "@/lib/store-data";
 import type { StorePermission } from "@/lib/auth";
 import type { OrderRecord } from "@/lib/cart";
@@ -109,14 +109,16 @@ function mapProduct(row: DbRow): StoreProduct {
     };
   });
   const salePrice = row.sale_price;
+  const audience = parseProductAudience(row["audience"]);
   return {
     id: stringField(row, "id"),
     slug: stringField(row, "slug"),
     name: stringField(row, "name"),
     category: stringField(row, "category"),
     subcategory: stringField(row, "subcategory"),
-    audience: parseProductAudience(row.audience),
+    ...(audience ? { audience } : {}),
     price: numberField(row, "price"),
+    ...(typeof row["cost_price"] === "number" ? { costPrice: numberField(row, "cost_price") } : {}),
     ...(typeof salePrice === "number" ? { salePrice } : {}),
     sku: stringField(row, "sku"),
     description: stringField(row, "description", ""),
@@ -176,13 +178,20 @@ export async function loadHomepageContent(): Promise<HomepageContent> {
   return {
     heroTitle: stringField(row, "hero_title"),
     heroSubtitle: stringField(row, "hero_subtitle"),
+    heroImage: stringField(row, "hero_image", ""),
     primaryCta: stringField(row, "primary_cta"),
     secondaryCta: stringField(row, "secondary_cta"),
     announcement: stringField(row, "announcement"),
     tickerMessages:
-      row.ticker_messages == null
+      row["ticker_messages"] == null
         ? defaultTickerMessages
         : stringArrayField(row, "ticker_messages"),
+    campaignImage: stringField(row, "campaign_image", ""),
+    campaignEyebrow: stringField(row, "campaign_eyebrow", ""),
+    campaignTitle: stringField(row, "campaign_title", ""),
+    campaignDescription: stringField(row, "campaign_description", ""),
+    campaignCta: stringField(row, "campaign_cta", ""),
+    campaignProductId: stringField(row, "campaign_product_id", ""),
   };
 }
 
@@ -219,6 +228,7 @@ function mapOrder(row: DbRow): OrderRecord {
       name: stringField(item, "name"),
       slug: "",
       price: numberField(item, "price"),
+      unitCost: item["unit_cost"] == null ? null : numberField(item, "unit_cost"),
       image: "",
       size: stringField(item, "size", ""),
       color: stringField(item, "color", ""),
@@ -265,8 +275,9 @@ export async function loadAdminStore(): Promise<AdminStoreData> {
     supabase
       .from("products")
       .select("*, product_variants(*, inventory(stock_quantity))")
+      .eq("active", true)
       .order("created_at", { ascending: false }),
-    supabase.from("categories").select("*").order("name"),
+    supabase.from("categories").select("*").eq("active", true).order("name"),
     supabase.from("collections").select("*").order("name"),
     supabase.from("collection_products").select("collection_id, product_id, position"),
     supabase.from("profiles").select("id, email, full_name, phone"),
@@ -368,14 +379,21 @@ export async function loadAdminStore(): Promise<AdminStoreData> {
     homepage: {
       heroTitle: homepageRow ? stringField(homepageRow, "hero_title") : "",
       heroSubtitle: homepageRow ? stringField(homepageRow, "hero_subtitle") : "",
+      heroImage: homepageRow ? stringField(homepageRow, "hero_image", "") : "",
       primaryCta: homepageRow ? stringField(homepageRow, "primary_cta") : "",
       secondaryCta: homepageRow ? stringField(homepageRow, "secondary_cta") : "",
       announcement: homepageRow ? stringField(homepageRow, "announcement") : "",
       tickerMessages: homepageRow
-        ? homepageRow.ticker_messages == null
+        ? homepageRow["ticker_messages"] == null
           ? defaultTickerMessages
           : stringArrayField(homepageRow, "ticker_messages")
         : defaultTickerMessages,
+      campaignImage: homepageRow ? stringField(homepageRow, "campaign_image", "") : "",
+      campaignEyebrow: homepageRow ? stringField(homepageRow, "campaign_eyebrow", "") : "",
+      campaignTitle: homepageRow ? stringField(homepageRow, "campaign_title", "") : "",
+      campaignDescription: homepageRow ? stringField(homepageRow, "campaign_description", "") : "",
+      campaignCta: homepageRow ? stringField(homepageRow, "campaign_cta", "") : "",
+      campaignProductId: homepageRow ? stringField(homepageRow, "campaign_product_id", "") : "",
     },
     settings: {
       currency: "EGP",
@@ -417,6 +435,7 @@ export async function saveStoreProduct(product: StoreProduct): Promise<StoreProd
     audience: product.audience ?? "all",
     price: product.price,
     sale_price: product.salePrice ?? null,
+    cost_price: product.costPrice ?? null,
     sku: product.sku,
     description: product.description,
     badge: product.badge ?? null,
@@ -507,6 +526,11 @@ export async function saveStoreCategory(category: StoreCategory) {
   return { ...category, id: returnedId(data, "Could not save category") };
 }
 
+export async function deleteStoreCategory(categoryId: string) {
+  const { error } = await getSupabaseClient().from("categories").delete().eq("id", categoryId);
+  fail("Could not delete category", error);
+}
+
 export async function saveStoreCollection(collection: StoreCollection) {
   const payload: DbRow = {
     name: collection.name,
@@ -561,6 +585,34 @@ export async function saveStoreCoupon(promo: PromoCode) {
   return { ...promo, id: returnedId(data, "Could not save coupon") };
 }
 
+export async function deleteStoreCoupon(promoId: string) {
+  const { error } = await getSupabaseClient().from("coupons").delete().eq("id", promoId);
+  fail("Could not delete coupon", error);
+}
+
+export async function updateStoreCustomerProfile(
+  customerId: string,
+  profile: Pick<CustomerProfile, "name" | "phone">,
+) {
+  const { error } = await getSupabaseClient().rpc("update_customer_profile", {
+    p_user_id: customerId,
+    p_full_name: profile.name,
+    p_phone: profile.phone,
+  });
+  fail("Could not update customer profile", error);
+}
+
+export async function deleteStoreCustomer(customerId: string): Promise<string[]> {
+  const { data, error } = await getSupabaseClient().rpc("delete_customer_account", {
+    p_user_id: customerId,
+  });
+  fail("Could not delete customer account", error);
+  if (!Array.isArray(data) || data.some((orderId) => typeof orderId !== "string")) {
+    throw new Error("Could not verify which customer orders were anonymized.");
+  }
+  return data;
+}
+
 export async function assignCustomerRole(
   userId: string,
   role: Exclude<CustomerProfile["role"], "owner">,
@@ -593,16 +645,38 @@ export async function updateOrderStatus(orderId: string, status: OrderRecord["st
   fail("Could not update order status", error);
 }
 
+export async function updateOrderDetails(
+  orderId: string,
+  changes: Partial<Pick<OrderRecord, "paymentStatus" | "tracking">>,
+) {
+  const payload: DbRow = {};
+  if (changes.paymentStatus !== undefined) payload["payment_status"] = changes.paymentStatus;
+  if (changes.tracking !== undefined) payload["tracking"] = changes.tracking;
+  if (Object.keys(payload).length === 0) return;
+
+  const { error } = await getSupabaseClient().from("orders").update(payload).eq("id", orderId);
+  fail("Could not update order details", error);
+}
+
 export async function saveHomepageContent(content: HomepageContent) {
-  const { error } = await getSupabaseClient().from("homepage_content").upsert({
-    singleton: true,
-    hero_title: content.heroTitle,
-    hero_subtitle: content.heroSubtitle,
-    primary_cta: content.primaryCta,
-    secondary_cta: content.secondaryCta,
-    announcement: content.announcement,
-    ticker_messages: content.tickerMessages,
-  });
+  const { error } = await getSupabaseClient()
+    .from("homepage_content")
+    .upsert({
+      singleton: true,
+      hero_title: content.heroTitle,
+      hero_subtitle: content.heroSubtitle,
+      hero_image: content.heroImage,
+      primary_cta: content.primaryCta,
+      secondary_cta: content.secondaryCta,
+      announcement: content.announcement,
+      ticker_messages: content.tickerMessages,
+      campaign_image: content.campaignImage,
+      campaign_eyebrow: content.campaignEyebrow,
+      campaign_title: content.campaignTitle,
+      campaign_description: content.campaignDescription,
+      campaign_cta: content.campaignCta,
+      campaign_product_id: content.campaignProductId || null,
+    });
   fail("Could not save homepage content", error);
 }
 

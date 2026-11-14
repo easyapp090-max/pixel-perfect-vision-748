@@ -41,10 +41,17 @@ export function filterStorefrontProducts(products: StoreProduct[], category: str
 const emptyHomepage: HomepageContent = {
   heroTitle: "",
   heroSubtitle: "",
+  heroImage: "",
   primaryCta: "",
   secondaryCta: "",
   announcement: "",
   tickerMessages: [],
+  campaignImage: "",
+  campaignEyebrow: "",
+  campaignTitle: "",
+  campaignDescription: "",
+  campaignCta: "",
+  campaignProductId: "",
 };
 
 export function createInitialStorefrontData(backendConfigured: boolean): StorefrontDataState {

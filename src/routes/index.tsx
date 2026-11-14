@@ -36,6 +36,8 @@ function Index() {
   const [toast, setToast] = useState(false);
   const newDrops = products.filter((product) => product.newArrival || product.featured);
   const bestSellers = products.filter((product) => product.bestSeller);
+  const campaignProduct =
+    products.find((product) => product.id === homepage.campaignProductId) ?? newDrops[0];
 
   useEffect(() => {
     setCartCount(getCartCount());
@@ -91,7 +93,7 @@ function Index() {
           <div className="relative md:col-span-5 md:col-start-6 md:row-span-2">
             <div className="grain aspect-[4/5] overflow-hidden">
               <img
-                src={siteImages.hero}
+                src={homepage.heroImage || siteImages.hero}
                 alt="5ADSH campaign — Drop 07"
                 width={1280}
                 height={1600}
@@ -234,8 +236,8 @@ function Index() {
         <div className="mx-auto grid max-w-[1600px] md:grid-cols-2">
           <div className="grain relative aspect-square md:aspect-auto">
             <img
-              src={siteImages.tee}
-              alt="Limited Fracture Tee"
+              src={homepage.campaignImage || siteImages.tee}
+              alt={homepage.campaignTitle || "Featured campaign"}
               loading="lazy"
               className="absolute inset-0 h-full w-full object-cover"
             />
@@ -243,29 +245,28 @@ function Index() {
 
           <div className="flex flex-col justify-center gap-6 px-6 py-16 md:px-16">
             <p className="font-mono text-xs tracking-[0.3em] opacity-60">
-              (05) LIMITED — 150 PIECES ONLY
+              {homepage.campaignEyebrow || "(05) LIMITED — 150 PIECES ONLY"}
             </p>
-            <h2 className="font-display text-6xl uppercase leading-[0.85] md:text-8xl">
-              The
-              <br />
-              Fracture
-              <br />
-              Run
+            <h2 className="font-display whitespace-pre-line text-6xl uppercase leading-[0.85] md:text-8xl">
+              {homepage.campaignTitle || "The Fracture Run"}
             </h2>
             <p className="max-w-md text-sm opacity-70">
-              Hand-cracked screen print on 280gsm washed cotton. Numbered inside the neck. The next
-              drop is configured from the admin dashboard.
+              {homepage.campaignDescription ||
+                "Hand-cracked screen print on 280gsm washed cotton. Numbered inside the neck."}
             </p>
             <div className="flex flex-col gap-2 border border-primary-foreground/30 p-4 font-mono text-xs tracking-[0.2em] uppercase">
               <span>Campaign window</span>
               <span className="text-primary-foreground/70">Managed from admin settings</span>
             </div>
             <button
-              onClick={() => handleAddToCart(newDrops[0])}
-              disabled={!newDrops[0]}
+              onClick={() => handleAddToCart(campaignProduct)}
+              disabled={!campaignProduct}
               className="w-fit bg-primary-foreground px-8 py-4 font-mono text-sm tracking-widest text-primary transition hover:tracking-[0.3em]"
             >
-              CLAIM YOURS — EGP 1,450
+              {homepage.campaignCta || "CLAIM YOURS"}
+              {campaignProduct
+                ? ` — EGP ${(campaignProduct.salePrice ?? campaignProduct.price).toLocaleString("en-US")}`
+                : ""}
             </button>
           </div>
         </div>

@@ -25,6 +25,7 @@ export type StoreProduct = {
   subcategory: string;
   audience?: ProductAudience;
   price: number;
+  costPrice?: number;
   salePrice?: number | undefined;
   sku: string;
   description: string;
@@ -87,10 +88,17 @@ export type StoreSettings = {
 export type HomepageContent = {
   heroTitle: string;
   heroSubtitle: string;
+  heroImage: string;
   primaryCta: string;
   secondaryCta: string;
   announcement: string;
   tickerMessages: string[];
+  campaignImage: string;
+  campaignEyebrow: string;
+  campaignTitle: string;
+  campaignDescription: string;
+  campaignCta: string;
+  campaignProductId: string;
 };
 
 const defaultProducts: StoreProduct[] = [
@@ -308,10 +316,18 @@ export const defaultTickerMessages = [
 const defaultHomepage: HomepageContent = {
   heroTitle: "Wear the mark. Not the rules.",
   heroSubtitle: "Raw-edge denim. Heavy cotton. Hand-distressed in small batches.",
+  heroImage: "",
   primaryCta: "Shop now",
   secondaryCta: "View drops",
   announcement: "FREE SHIPPING ACROSS EGYPT OVER EGP 2,000",
   tickerMessages: defaultTickerMessages,
+  campaignImage: "",
+  campaignEyebrow: "(05) LIMITED — 150 PIECES ONLY",
+  campaignTitle: "The Fracture Run",
+  campaignDescription:
+    "Hand-cracked screen print on 280gsm washed cotton. Numbered inside the neck. The next drop is configured from the admin dashboard.",
+  campaignCta: "CLAIM YOURS",
+  campaignProductId: "",
 };
 
 const defaultSettings: StoreSettings = {
