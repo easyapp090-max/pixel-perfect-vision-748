@@ -1,11 +1,13 @@
 import hero from "@/assets/hero.jpg";
-import men from "@/assets/men.jpg";
+import kids from "@/assets/kids.jpg";
 import women from "@/assets/women.jpg";
 import acc from "@/assets/acc.jpg";
 import tee from "@/assets/tee.jpg";
 import jeans from "@/assets/jeans.jpg";
 import fahd from "@/assets/fahd.jpg";
 import type { StorePermission } from "@/lib/auth";
+
+const men = fahd;
 
 export const siteImages = { hero, men, women, acc, tee, jeans, fahd };
 
@@ -15,7 +17,71 @@ export type CategoryDefinition = {
   arabic: string;
   image: string;
   tone?: string;
+  navLabel: string;
+  isEditorial?: boolean;
 };
+
+export const categoryCatalog: CategoryDefinition[] = [
+  {
+    name: "Men",
+    slug: "men",
+    navLabel: "MEN",
+    arabic: "رجال",
+    image: fahd,
+    tone: "men",
+    isEditorial: true,
+  },
+  {
+    name: "Women",
+    slug: "women",
+    navLabel: "WOMEN",
+    arabic: "حريمي",
+    image: women,
+    tone: "women",
+    isEditorial: true,
+  },
+  {
+    name: "Kids",
+    slug: "kids",
+    navLabel: "KIDS",
+    arabic: "أطفال",
+    image: kids,
+    tone: "kids",
+    isEditorial: true,
+  },
+  { name: "T-Shirts", slug: "t-shirts", navLabel: "T-SHIRTS", arabic: "تيشيرتات", image: tee },
+  { name: "Shirts", slug: "shirts", navLabel: "SHIRTS", arabic: "قمصان", image: tee },
+  { name: "Pants", slug: "pants", navLabel: "PANTS", arabic: "بناطيل", image: fahd },
+  { name: "Jeans", slug: "jeans", navLabel: "JEANS", arabic: "جينز", image: jeans },
+  { name: "Dresses", slug: "dresses", navLabel: "DRESSES", arabic: "فساتين", image: women },
+  { name: "Sets", slug: "sets", navLabel: "SETS", arabic: "أطقم", image: hero },
+  {
+    name: "Jackets",
+    slug: "jackets",
+    navLabel: "JACKETS",
+    arabic: "جاكيتات",
+    image: hero,
+    tone: "jackets",
+    isEditorial: true,
+  },
+  { name: "Shoes", slug: "shoes", navLabel: "SHOES", arabic: "أحذية", image: acc },
+  {
+    name: "Accessories",
+    slug: "accessories",
+    navLabel: "ACCESSORIES",
+    arabic: "إكسسوارات",
+    image: acc,
+    tone: "accessories",
+    isEditorial: true,
+  },
+  {
+    name: "Coming Soon",
+    slug: "coming-soon",
+    navLabel: "COMING SOON",
+    arabic: "قريباً",
+    image: hero,
+  },
+];
 
 export type ProductVariant = {
   id: string;
@@ -53,6 +119,7 @@ export type StoreCategory = {
   slug: string;
   image: string;
   arabic: string;
+  active?: boolean;
 };
 
 export type StoreCollection = {
@@ -91,6 +158,38 @@ export type StoreSettings = {
   allowCashOnDelivery: boolean;
   supportEmail: string;
   timezone: string;
+};
+
+export type SiteSettings = {
+  phone: string;
+  whatsapp: string;
+  address: string;
+  email: string;
+  googleMapsUrl: string;
+  instagramUrl: string;
+  facebookUrl: string;
+  tiktokUrl: string;
+  instagramEnabled: boolean;
+  facebookEnabled: boolean;
+  tiktokEnabled: boolean;
+  showBestSellers: boolean;
+  showNewDrops: boolean;
+};
+
+export const defaultSiteSettings: SiteSettings = {
+  phone: "",
+  whatsapp: "",
+  address: "",
+  email: "",
+  googleMapsUrl: "",
+  instagramUrl: "",
+  facebookUrl: "",
+  tiktokUrl: "",
+  instagramEnabled: true,
+  facebookEnabled: true,
+  tiktokEnabled: true,
+  showBestSellers: true,
+  showNewDrops: true,
 };
 
 export type HomepageContent = {
@@ -280,16 +379,14 @@ const defaultProducts: StoreProduct[] = [
 ];
 
 const defaultCategories: StoreCategory[] = [
-  { id: "cat-men", name: "Men", slug: "men", image: men, arabic: "رجالي" },
-  { id: "cat-women", name: "Women", slug: "women", image: women, arabic: "حريمي" },
-  { id: "cat-kids", name: "Kids", slug: "kids", image: hero, arabic: "أطفال" },
-  {
-    id: "cat-accessories",
-    name: "Accessories",
-    slug: "accessories",
-    image: acc,
-    arabic: "إكسسوار",
-  },
+  ...categoryCatalog.map((category) => ({
+    id: `cat-${category.slug}`,
+    name: category.name,
+    slug: category.slug,
+    image: category.image,
+    arabic: category.arabic,
+    active: true,
+  })),
 ];
 
 const defaultCollections: StoreCollection[] = [
@@ -418,8 +515,30 @@ export function productMatchesCategory(product: StoreProduct, category: string) 
   if (normalized === "coming-soon") return false;
   const productCategory = normalizeCategory(product.category);
   const productSubcategory = normalizeCategory(product.subcategory);
+  if (["men", "women", "kids"].includes(normalized)) {
+    if (product.audience === normalized || product.audience === "all") return true;
+  }
   if (productCategory === normalized || productSubcategory === normalized) return true;
   return productCategory.replace(/s$/, "") === normalized.replace(/s$/, "");
+}
+
+export function ensureKidsCategory(categories: StoreCategory[]) {
+  if (categories.some((category) => normalizeCategory(category.slug) === "kids")) {
+    return categories;
+  }
+  const kids = categoryCatalog.find((category) => category.slug === "kids");
+  if (!kids) return categories;
+  return [
+    ...categories,
+    {
+      id: "local-kids",
+      name: kids.name,
+      slug: kids.slug,
+      image: kids.image,
+      arabic: kids.arabic,
+      active: true,
+    },
+  ];
 }
 
 export function getProductBySlug(slug: string) {

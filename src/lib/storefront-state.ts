@@ -38,6 +38,22 @@ export function filterStorefrontProducts(products: StoreProduct[], category: str
   );
 }
 
+export function getHomepageProductSections(products: StoreProduct[]) {
+  return {
+    bestSellers: products.filter((product) => product.bestSeller === true),
+    newDrops: products.filter(
+      (product) => product.newArrival === true || product.featured === true,
+    ),
+  };
+}
+
+export function isHomepageSectionVisible(
+  settings: { showBestSellers: boolean; showNewDrops: boolean },
+  section: "bestSellers" | "newDrops",
+) {
+  return section === "bestSellers" ? settings.showBestSellers : settings.showNewDrops;
+}
+
 const emptyHomepage: HomepageContent = {
   heroTitle: "",
   heroSubtitle: "",

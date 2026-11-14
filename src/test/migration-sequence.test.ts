@@ -13,6 +13,7 @@ describe("Supabase migration sequence", () => {
     const three = migrationText("003_secure_order_tracking.sql");
     const four = migrationText("004_assistant_permissions.sql");
     const five = migrationText("005_first_owner_setup.sql");
+    const nine = migrationText("009_site_settings.sql");
 
     expect(one).toMatch(/create table if not exists public\.products/i);
     expect(two).toMatch(/create table if not exists public\.app_roles/i);
@@ -28,6 +29,15 @@ describe("Supabase migration sequence", () => {
     expect(two).toMatch(/requires 001_init\.sql first/i);
     expect(two).toMatch(/pg_policies/i);
     expect(four).toMatch(/pg_policies/i);
+    expect(nine).toMatch(/public\.store_settings/i);
+    expect(nine).toMatch(/add column if not exists instagram_url text/i);
+    expect(nine).toMatch(/add column if not exists updated_by uuid/i);
+    expect(nine).toMatch(
+      /add column if not exists show_best_sellers boolean not null default true/i,
+    );
+    expect(nine).toMatch(/add column if not exists show_new_drops boolean not null default true/i);
+    expect(nine).toMatch(/on conflict \(singleton\) do nothing/i);
+    expect(nine).not.toMatch(/create table .*site_settings/i);
   });
 
   it("does not make the prerequisite guards mutate application data", () => {

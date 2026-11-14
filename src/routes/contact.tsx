@@ -1,8 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { useSiteSettings } from "@/hooks/use-site-settings";
+
 export const Route = createFileRoute("/contact")({ component: ContactPage });
 
 function ContactPage() {
+  const settings = useSiteSettings();
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-12 md:px-8">
       <p className="font-mono text-xs uppercase tracking-[0.3em] text-muted-foreground">Contact</p>
@@ -12,7 +15,40 @@ function ContactPage() {
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
             Email
           </p>
-          <p className="mt-2 text-lg">hello@5adsh.store</p>
+          {settings.email ? (
+            <a className="mt-2 block text-lg underline" href={`mailto:${settings.email}`}>
+              {settings.email}
+            </a>
+          ) : null}
+          {settings.phone ? (
+            <a className="mt-4 block text-lg underline" href={`tel:${settings.phone}`}>
+              {settings.phone}
+            </a>
+          ) : null}
+          {settings.whatsapp ? (
+            <a
+              className="mt-2 block text-lg underline"
+              href={`https://wa.me/${settings.whatsapp.replace(/\D/g, "")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              WhatsApp
+            </a>
+          ) : null}
+          {settings.address ? (
+            settings.googleMapsUrl ? (
+              <a
+                className="mt-4 block text-lg underline"
+                href={settings.googleMapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {settings.address}
+              </a>
+            ) : (
+              <p className="mt-4 text-lg">{settings.address}</p>
+            )
+          ) : null}
           <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
             Hours
           </p>

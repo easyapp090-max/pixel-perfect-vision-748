@@ -21,7 +21,7 @@ export const Route = createFileRoute("/products/$category")({
 
 function CategoryPage() {
   const { category } = Route.useParams();
-  const { products, status, error } = useStorefrontData();
+  const { products, categories, status, error } = useStorefrontData();
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("newest");
   const normalizedCategory = normalizeCategory(category);
@@ -107,7 +107,12 @@ function CategoryPage() {
       </div>
 
       <div className="mb-10 border-y border-border py-4">
-        <CategoryNav activeCategory={normalizedCategory} />
+        <CategoryNav
+          activeCategory={normalizedCategory}
+          hiddenSlugs={categories
+            .filter((entry) => entry.active === false)
+            .map((entry) => entry.slug)}
+        />
       </div>
 
       {!isKnownCategory ? (

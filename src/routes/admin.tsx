@@ -3,6 +3,7 @@ import { LogOut } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Wordmark } from "@/components/Wordmark";
+import { SiteSettingsFields } from "@/components/SiteSettingsFields";
 import { getUserFacingError } from "@/lib/user-messages";
 import {
   getCurrentAdminSession,
@@ -21,6 +22,9 @@ import {
   type StoreCollection,
   type StoreProduct,
   type StoreSettings,
+  defaultSiteSettings,
+  ensureKidsCategory,
+  type SiteSettings,
 } from "@/lib/store-data";
 import {
   archiveStoreProduct,
@@ -31,6 +35,7 @@ import {
   saveStoreCoupon,
   saveStoreProduct,
   saveStoreSettings,
+  saveSiteSettings,
   setAssistantAccess,
   setAssistantPermissions,
   updateOrderStatus as updateStoreOrderStatus,
@@ -47,7 +52,8 @@ type AdminTab =
   | "customers"
   | "promos"
   | "content"
-  | "settings";
+  | "settings"
+  | "site-settings";
 
 const permissionLabels: Array<{ value: StorePermission; label: string }> = [
   { value: "manage_products", label: "Products" },
@@ -103,6 +109,10 @@ export function AdminPage() {
   const [promos, setPromos] = useState<PromoCode[]>([]);
   const [content, setContent] = useState(homepageContent);
   const [settings, setSettings] = useState(storeSettings);
+  const [siteSettings, setSiteSettings] = useState<SiteSettings>(defaultSiteSettings);
+  const [savedSiteSettings, setSavedSiteSettings] = useState<SiteSettings>(defaultSiteSettings);
+  const [savingSiteSettings, setSavingSiteSettings] = useState(false);
+  const [siteSettingsMessage, setSiteSettingsMessage] = useState("");
   const [productDraft, setProductDraft] = useState<StoreProduct>(() => emptyProduct());
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [promoDraft, setPromoDraft] = useState<PromoCode>({
@@ -121,6 +131,7 @@ export function AdminPage() {
     slug: "",
     image: "",
     arabic: "",
+    active: true,
   });
   const [collectionDraft, setCollectionDraft] = useState<StoreCollection>({
     id: "",
@@ -141,12 +152,14 @@ export function AdminPage() {
         if (!active) return;
         setOrders(data.orders);
         setProducts(data.products);
-        setCategories(data.categories);
+        setCategories(ensureKidsCategory(data.categories));
         setCollections(data.collections);
         setCustomers(data.customers);
         setPromos(data.promos);
         setContent(data.homepage);
         setSettings(data.settings);
+        setSiteSettings(data.siteSettings);
+        setSavedSiteSettings(data.siteSettings);
         setDataLoaded(true);
       })
       .catch((cause: unknown) => {
@@ -161,6 +174,18 @@ export function AdminPage() {
       active = false;
     };
   }, []);
+
+  const siteSettingsDirty = JSON.stringify(siteSettings) !== JSON.stringify(savedSiteSettings);
+
+  useEffect(() => {
+    if (!siteSettingsDirty) return;
+    const warnBeforeLeave = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnBeforeLeave);
+    return () => window.removeEventListener("beforeunload", warnBeforeLeave);
+  }, [siteSettingsDirty]);
 
   const accessAllowed = hasAdminAccess(adminSession);
 
@@ -300,7 +325,7 @@ export function AdminPage() {
           ? current.map((category) => (category.id === saved.id ? saved : category))
           : [saved, ...current],
       );
-      setCategoryDraft({ id: "", name: "", slug: "", image: "", arabic: "" });
+      setCategoryDraft({ id: "", name: "", slug: "", image: "", arabic: "", active: true });
     });
 
   const saveCollection = () =>
@@ -315,6 +340,20 @@ export function AdminPage() {
     });
 
   const saveSettings = () => runAction(() => saveStoreSettings(settings));
+
+  const saveSiteSettingsAction = async () => {
+    setSiteSettingsMessage("");
+    setSavingSiteSettings(true);
+    try {
+      await saveSiteSettings(siteSettings);
+      setSavedSiteSettings(siteSettings);
+      setSiteSettingsMessage("تم حفظ إعدادات الموقع بنجاح / Site settings saved successfully.");
+    } catch (cause) {
+      setSiteSettingsMessage(getUserFacingError(cause, "Could not save site settings."));
+    } finally {
+      setSavingSiteSettings(false);
+    }
+  };
 
   const saveContent = () => runAction(() => saveHomepageContent(content));
 
@@ -341,6 +380,7 @@ export function AdminPage() {
       { key: "promos", label: "Promos" },
       { key: "content", label: "Homepage" },
       { key: "settings", label: "Settings" },
+      { key: "site-settings", label: "إعدادات الموقع / Site Settings" },
     ] as { key: AdminTab; label: string }[]
   ).filter(
     (tab) =>
@@ -350,7 +390,8 @@ export function AdminPage() {
       (tab.key === "customers" && hasPermission("view_customers")) ||
       (tab.key === "promos" && hasPermission("manage_discounts")) ||
       (tab.key === "content" && hasPermission("manage_content")) ||
-      (tab.key === "settings" && hasPermission("manage_settings")),
+      (tab.key === "settings" && hasPermission("manage_settings")) ||
+      (tab.key === "site-settings" && hasPermission("manage_settings")),
   );
 
   if (!authChecked) {
@@ -456,7 +497,17 @@ export function AdminPage() {
           <button
             key={tab.key}
             type="button"
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => {
+              if (
+                tab.key !== activeTab &&
+                siteSettingsDirty &&
+                !window.confirm(
+                  "لديك تغييرات غير محفوظة. هل تريد المغادرة؟ / You have unsaved changes. Leave this section?",
+                )
+              )
+                return;
+              setActiveTab(tab.key);
+            }}
             aria-pressed={activeTab === tab.key}
             className={`border px-4 py-3 font-mono text-[10px] uppercase tracking-[0.2em] ${activeTab === tab.key ? "border-primary bg-primary text-primary-foreground shadow-sm" : "border-foreground/15 bg-card text-muted-foreground hover:text-foreground"}`}
           >
@@ -623,6 +674,36 @@ export function AdminPage() {
                   <option value="kids">Kids</option>
                 </select>
               </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="flex items-center gap-3 border border-foreground/10 p-3 font-mono text-[10px] uppercase tracking-[0.15em]">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(productDraft.bestSeller)}
+                    onChange={(event) =>
+                      setProductDraft((current) => ({
+                        ...current,
+                        bestSeller: event.target.checked,
+                      }))
+                    }
+                    className="h-4 w-4 accent-primary"
+                  />
+                  <span>Best Seller</span>
+                </label>
+                <label className="flex items-center gap-3 border border-foreground/10 p-3 font-mono text-[10px] uppercase tracking-[0.15em]">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(productDraft.newArrival)}
+                    onChange={(event) =>
+                      setProductDraft((current) => ({
+                        ...current,
+                        newArrival: event.target.checked,
+                      }))
+                    }
+                    className="h-4 w-4 accent-primary"
+                  />
+                  <span>New Drop</span>
+                </label>
+              </div>
               <input
                 value={productDraft.price}
                 onChange={(event) =>
@@ -844,6 +925,16 @@ export function AdminPage() {
                 placeholder="Arabic label"
                 className="w-full border border-input bg-background px-3 py-2 text-xs uppercase tracking-[0.2em] outline-none"
               />
+              <label className="flex items-center gap-3 border border-input px-3 py-3 font-mono text-xs uppercase tracking-[0.2em]">
+                <input
+                  type="checkbox"
+                  checked={categoryDraft.active !== false}
+                  onChange={(event) =>
+                    setCategoryDraft({ ...categoryDraft, active: event.target.checked })
+                  }
+                />
+                Visible in storefront
+              </label>
               <button
                 type="button"
                 onClick={saveCategory}
@@ -1100,6 +1191,44 @@ export function AdminPage() {
               Save homepage content
             </button>
           </div>
+        </div>
+      )}
+
+      {activeTab === "site-settings" && (
+        <div className="max-w-4xl border bg-card p-5 md:p-8">
+          <div className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b pb-5">
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                Site Settings
+              </p>
+              <h2 className="mt-2 font-display text-4xl uppercase md:text-5xl">إعدادات الموقع</h2>
+            </div>
+            {siteSettingsDirty ? (
+              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-amber-700">
+                Unsaved changes / تغييرات غير محفوظة
+              </span>
+            ) : null}
+          </div>
+          <SiteSettingsFields settings={siteSettings} onChange={setSiteSettings} />
+          {siteSettingsMessage ? (
+            <p
+              className={`mt-6 border p-3 text-sm ${
+                siteSettingsMessage.includes("Could not") || siteSettingsMessage.includes("must be")
+                  ? "border-red-500 text-red-600"
+                  : "border-green-600 text-green-700"
+              }`}
+            >
+              {siteSettingsMessage}
+            </p>
+          ) : null}
+          <button
+            type="button"
+            onClick={saveSiteSettingsAction}
+            disabled={savingSiteSettings || !siteSettingsDirty}
+            className="mt-6 w-full bg-primary px-5 py-3 font-mono text-xs uppercase tracking-[0.2em] text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {savingSiteSettings ? "Saving… / جارٍ الحفظ" : "Save changes / حفظ التغييرات"}
+          </button>
         </div>
       )}
 

@@ -8,8 +8,10 @@ import { ProductCard } from "@/components/ProductCard";
 import { StorefrontDataNotice } from "@/components/StorefrontDataNotice";
 import { Wordmark } from "@/components/Wordmark";
 import { useStorefrontData } from "@/hooks/use-storefront-data";
+import { useSiteSettings } from "@/hooks/use-site-settings";
 import { addCartItem, getCartCount } from "@/lib/cart";
 import { siteImages } from "@/lib/store-data";
+import { getHomepageProductSections, isHomepageSectionVisible } from "@/lib/storefront-state";
 import reference from "@/assets/reference.png";
 
 export const Route = createFileRoute("/")({
@@ -33,12 +35,12 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const { products, homepage, status, error } = useStorefrontData();
+  const { products, categories, homepage, status, error } = useStorefrontData();
+  const siteSettings = useSiteSettings();
   const [menu, setMenu] = useState(false);
   const [cartCount, setCartCount] = useState(getCartCount());
   const [toast, setToast] = useState(false);
-  const newDrops = products.filter((product) => product.newArrival || product.featured);
-  const bestSellers = products.filter((product) => product.bestSeller);
+  const { newDrops, bestSellers } = getHomepageProductSections(products);
 
   useEffect(() => {
     setCartCount(getCartCount());
@@ -222,22 +224,24 @@ function Index() {
       </section>
 
       <div id="cats">
-        <CategoryEditorial />
+        <CategoryEditorial categories={categories} />
       </div>
 
-      <section id="drops" className="mx-auto max-w-[1600px] px-4 py-20 md:px-8">
-        <SectionHead n="03" title="New Drops" ar="جديد" />
-        <div className="grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-4">
-          {newDrops.slice(0, 4).map((product, index) => (
-            <ProductCard
-              key={product.id}
-              p={product}
-              i={index}
-              onAdd={() => handleAddToCart(product)}
-            />
-          ))}
-        </div>
-      </section>
+      {isHomepageSectionVisible(siteSettings, "newDrops") ? (
+        <section id="drops" className="mx-auto max-w-[1600px] px-4 py-20 md:px-8">
+          <SectionHead n="03" title="New Drops" ar="جديد" />
+          <div className="grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-4">
+            {newDrops.slice(0, 4).map((product, index) => (
+              <ProductCard
+                key={product.id}
+                p={product}
+                i={index}
+                onAdd={() => handleAddToCart(product)}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <div className="overflow-hidden border-y py-6">
         <div className="flex w-max animate-marquee gap-12">
@@ -247,19 +251,21 @@ function Index() {
         </div>
       </div>
 
-      <section className="mx-auto max-w-[1600px] px-4 py-20 md:px-8">
-        <SectionHead n="04" title="Best Sellers" ar="الأكثر مبيعاً" />
-        <div className="grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-4">
-          {bestSellers.slice(0, 4).map((product, index) => (
-            <ProductCard
-              key={product.id}
-              p={product}
-              i={index}
-              onAdd={() => handleAddToCart(product)}
-            />
-          ))}
-        </div>
-      </section>
+      {isHomepageSectionVisible(siteSettings, "bestSellers") ? (
+        <section className="mx-auto max-w-[1600px] px-4 py-20 md:px-8">
+          <SectionHead n="04" title="Best Sellers" ar="الأكثر مبيعاً" />
+          <div className="grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-4">
+            {bestSellers.slice(0, 4).map((product, index) => (
+              <ProductCard
+                key={product.id}
+                p={product}
+                i={index}
+                onAdd={() => handleAddToCart(product)}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="relative bg-primary text-primary-foreground">
         <div className="mx-auto grid max-w-[1600px] md:grid-cols-2">
@@ -323,71 +329,6 @@ function Index() {
           </div>
         </div>
       </section>
-
-      <footer className="bg-primary px-4 pt-16 text-primary-foreground md:px-8">
-        <div className="mx-auto max-w-[1600px]">
-          <div className="grid gap-10 border-b border-primary-foreground/20 pb-12 md:grid-cols-4">
-            <div className="md:col-span-2">
-              <p className="font-display text-3xl uppercase">Get scratched first.</p>
-              <form
-                onSubmit={(event) => event.preventDefault()}
-                className="mt-4 flex max-w-md border border-primary-foreground/40"
-              >
-                <input
-                  placeholder="EMAIL"
-                  className="flex-1 bg-transparent px-4 py-3 font-mono text-sm outline-none placeholder:text-primary-foreground/50"
-                />
-                <button className="bg-primary-foreground px-5 font-mono text-xs text-primary">
-                  JOIN
-                </button>
-              </form>
-            </div>
-            <ul className="space-y-2 font-mono text-xs tracking-widest opacity-70">
-              {(
-                [
-                  ["Shipping", "/shipping"],
-                  ["Returns", "/returns"],
-                  ["Size guide", "/size-guide"],
-                  ["Contact", "/contact"],
-                ] as const
-              ).map(([label, href]) => (
-                <li key={label}>
-                  <Link to={href}>{label.toUpperCase()}</Link>
-                </li>
-              ))}
-            </ul>
-            <ul className="space-y-2 font-mono text-xs tracking-widest opacity-70">
-              {(
-                [
-                  ["Instagram", "https://instagram.com"],
-                  ["TikTok", "https://tiktok.com"],
-                  ["Cairo, EG", "/contact"],
-                ] as const
-              ).map(([label, href]) => (
-                <li key={label}>
-                  {href.startsWith("http") ? (
-                    <a href={href} target="_blank" rel="noreferrer">
-                      {label.toUpperCase()}
-                    </a>
-                  ) : (
-                    <Link to="/contact">{label.toUpperCase()}</Link>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-          <Link
-            to="/"
-            aria-label="5ADSH home"
-            className="relative block py-6 leading-[0.8] [--background:var(--ink)]"
-          >
-            <Wordmark arabic={false} className="text-[27vw] xl:text-[420px]" />
-          </Link>
-          <p className="pb-6 font-mono text-[10px] tracking-widest opacity-50">
-            © 2026 5ADSH — خدش. ALL MARKS RESERVED.
-          </p>
-        </div>
-      </footer>
 
       {toast && (
         <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 bg-primary px-6 py-3 font-mono text-xs tracking-widest text-primary-foreground animate-rise">

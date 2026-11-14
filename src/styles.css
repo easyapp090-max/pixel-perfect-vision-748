@@ -178,60 +178,102 @@
   border-bottom: 1px solid rgb(245 243 239 / 24%);
   padding-bottom: 1.25rem;
 }
+.category-editorial__title-row {
+  min-width: 0;
+}
 .category-editorial__grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.45fr) minmax(0, 0.45fr);
-  grid-template-rows: minmax(260px, 1fr) minmax(220px, 0.72fr);
-  gap: 0.75rem;
-  min-height: min(74vw, 850px);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: clamp(0.75rem, 1.4vw, 1.25rem);
+  margin-inline: auto;
 }
 .category-editorial__card {
   position: relative;
-  min-height: 220px;
+  display: block;
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
   background: #111;
 }
 .category-editorial__card--men {
-  grid-row: 1 / span 2;
-  grid-column: 1;
+  aspect-ratio: 7 / 9;
 }
 .category-editorial__card--women {
-  grid-column: 2 / span 2;
-  grid-row: 1;
+  aspect-ratio: 3 / 4;
 }
 .category-editorial__card--jackets {
-  grid-column: 2;
-  grid-row: 2;
+  aspect-ratio: 4 / 5;
 }
 .category-editorial__card--accessories {
-  grid-column: 3;
-  grid-row: 2;
+  aspect-ratio: 1 / 1;
 }
-.category-editorial__card img {
+.category-editorial__card--kids {
+  aspect-ratio: 4 / 5;
+}
+.category-editorial__image {
+  display: block;
   width: 100%;
   height: 100%;
+  min-width: 0;
+  min-height: 0;
   object-fit: cover;
+  object-position: center;
   filter: grayscale(1);
   transition:
     transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1),
     filter 0.8s ease;
 }
-.category-editorial__card:hover img {
+.category-editorial__card:hover .category-editorial__image {
   transform: scale(1.06);
   filter: grayscale(0.25);
+}
+.category-editorial__card--men .category-editorial__image {
+  object-position: center center;
+}
+.category-editorial__card--women .category-editorial__image {
+  object-position: center center;
+}
+.category-editorial__card--jackets .category-editorial__image {
+  object-position: center center;
+}
+.category-editorial__card--accessories .category-editorial__image {
+  object-position: center center;
+}
+.category-editorial__card--kids .category-editorial__image {
+  object-position: center center;
 }
 .category-editorial__shade {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, transparent 42%, rgb(0 0 0 / 78%));
+  background: linear-gradient(180deg, transparent 48%, rgb(0 0 0 / 82%));
 }
 .category-editorial__label {
   position: absolute;
-  inset: auto 1.25rem 1.1rem;
+  inset: auto clamp(0.85rem, 2.2vw, 1.5rem) clamp(0.85rem, 2.2vw, 1.4rem);
   display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 1rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  min-width: 0;
+  max-width: calc(100% - 1.7rem);
+}
+.category-editorial__name {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: normal;
+  font-size: clamp(2.25rem, 4vw, 4.75rem);
+  font-weight: 400;
+  line-height: 0.9;
+  letter-spacing: -0.015em;
+  text-transform: uppercase;
+}
+.category-editorial__arabic {
+  max-width: 100%;
+  color: rgb(255 255 255 / 75%);
+  font-size: clamp(1.1rem, 1.8vw, 1.55rem);
+  line-height: 1;
+  white-space: normal;
 }
 .category-editorial__nav {
   display: flex;
@@ -260,25 +302,50 @@
   background: #f5f3ef;
   color: #050505;
 }
-@media (max-width: 640px) {
+@media (max-width: 639px) {
+  .category-editorial__title-row {
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .category-editorial__title-row h1 {
+    max-width: 100%;
+    font-size: clamp(3.5rem, 15vw, 5rem);
+  }
   .category-editorial__grid {
     display: flex;
     flex-direction: column;
-    min-height: 0;
+    gap: 0.75rem;
   }
   .category-editorial__card {
-    aspect-ratio: 4 / 5;
-    min-height: 0;
+    width: 100%;
+  }
+  .category-editorial__label {
+    gap: 0.35rem;
+  }
+  .category-editorial__name {
+    font-size: clamp(2.35rem, 10vw, 3.6rem);
+  }
+  .category-editorial__arabic {
+    font-size: clamp(1.05rem, 4.5vw, 1.3rem);
+  }
+}
+
+@media (min-width: 640px) {
+  .category-editorial__grid {
+    max-width: 1180px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .category-editorial__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .category-editorial__card--men {
-    aspect-ratio: 4 / 5;
+    grid-column: span 1;
   }
-  .category-editorial__card--women {
-    aspect-ratio: 16 / 10;
-  }
-  .category-editorial__card--jackets,
-  .category-editorial__card--accessories {
-    aspect-ratio: 4 / 3;
+  .category-editorial__card--kids {
+    grid-column: span 1;
   }
 }
 

@@ -16,6 +16,8 @@ import { clampProductQuantity, storeProducts } from "@/lib/store-data";
 import {
   createInitialStorefrontData,
   filterStorefrontProducts,
+  getHomepageProductSections,
+  isHomepageSectionVisible,
   parseTickerMessages,
 } from "@/lib/storefront-state";
 
@@ -221,6 +223,40 @@ describe("store logic", () => {
     expect(filterStorefrontProducts(products, "kids").map((product) => product.id)).toEqual([
       "all-audiences",
     ]);
+  });
+
+  it("keeps Best Seller and New Drop product flags independent", () => {
+    const products = [
+      { ...firstProduct, id: "best-only", bestSeller: true, newArrival: false, featured: false },
+      { ...firstProduct, id: "drop-only", bestSeller: false, newArrival: true, featured: false },
+      {
+        ...firstProduct,
+        id: "featured-only",
+        bestSeller: false,
+        newArrival: false,
+        featured: true,
+      },
+      { ...firstProduct, id: "neither", bestSeller: false, newArrival: false, featured: false },
+    ];
+    const sections = getHomepageProductSections(products);
+
+    expect(sections.bestSellers.map((product) => product.id)).toEqual(["best-only"]);
+    expect(sections.newDrops.map((product) => product.id)).toEqual(["drop-only", "featured-only"]);
+  });
+
+  it("keeps homepage section visibility settings independent", () => {
+    expect(
+      isHomepageSectionVisible({ showBestSellers: false, showNewDrops: true }, "bestSellers"),
+    ).toBe(false);
+    expect(
+      isHomepageSectionVisible({ showBestSellers: false, showNewDrops: true }, "newDrops"),
+    ).toBe(true);
+    expect(
+      isHomepageSectionVisible({ showBestSellers: true, showNewDrops: false }, "bestSellers"),
+    ).toBe(true);
+    expect(
+      isHomepageSectionVisible({ showBestSellers: true, showNewDrops: false }, "newDrops"),
+    ).toBe(false);
   });
 
   it("parses editable marquee messages one per line and preserves Arabic", () => {

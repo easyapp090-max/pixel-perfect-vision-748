@@ -1,12 +1,14 @@
+import { defaultTickerMessages } from "@/lib/store-data";
 import type {
   CustomerProfile,
-  defaultTickerMessages,
   HomepageContent,
+  ProductAudience,
   PromoCode,
   StoreCategory,
   StoreCollection,
   StoreProduct,
   StoreSettings,
+  SiteSettings,
 } from "@/lib/store-data";
 import type { StorePermission } from "@/lib/auth";
 import type { OrderRecord } from "@/lib/cart";
@@ -56,8 +58,9 @@ function numberField(row: DbRow, key: string, fallback?: number): number {
   throw new Error(`The database returned an invalid "${key}" value.`);
 }
 
-function booleanField(row: DbRow, key: string): boolean {
+function booleanField(row: DbRow, key: string, fallback?: boolean): boolean {
   const value = row[key];
+  if (fallback !== undefined && value == null) return fallback;
   if (typeof value !== "boolean")
     throw new Error(`The database returned an invalid "${key}" value.`);
   return value;
@@ -115,7 +118,7 @@ function mapProduct(row: DbRow): StoreProduct {
     name: stringField(row, "name"),
     category: stringField(row, "category"),
     subcategory: stringField(row, "subcategory"),
-    audience: parseProductAudience(row.audience),
+    audience: parseProductAudience(row["audience"]),
     price: numberField(row, "price"),
     ...(typeof salePrice === "number" ? { salePrice } : {}),
     sku: stringField(row, "sku"),
@@ -131,7 +134,7 @@ function mapProduct(row: DbRow): StoreProduct {
   };
 }
 
-function parseProductAudience(value: unknown): StoreProduct["audience"] {
+function parseProductAudience(value: unknown): ProductAudience {
   if (value == null) return "all";
   if (value === "all" || value === "men" || value === "women" || value === "kids") return value;
   throw new Error("The database returned an unsupported product audience.");
@@ -151,8 +154,7 @@ export async function loadStoreProducts(includeInactive = false): Promise<StoreP
 export async function loadStorefrontCategories(): Promise<StoreCategory[]> {
   const { data, error } = await getSupabaseClient()
     .from("categories")
-    .select("id, name, slug, image, arabic")
-    .eq("active", true)
+    .select("id, name, slug, image, arabic, active")
     .order("name");
   fail("Could not load categories", error);
   return asRows(data).map((row) => ({
@@ -161,6 +163,7 @@ export async function loadStorefrontCategories(): Promise<StoreCategory[]> {
     slug: stringField(row, "slug"),
     image: stringField(row, "image", ""),
     arabic: stringField(row, "arabic", ""),
+    active: booleanField(row, "active", true),
   }));
 }
 
@@ -180,7 +183,7 @@ export async function loadHomepageContent(): Promise<HomepageContent> {
     secondaryCta: stringField(row, "secondary_cta"),
     announcement: stringField(row, "announcement"),
     tickerMessages:
-      row.ticker_messages == null
+      row["ticker_messages"] == null
         ? defaultTickerMessages
         : stringArrayField(row, "ticker_messages"),
   };
@@ -244,6 +247,7 @@ export type AdminStoreData = {
   promos: PromoCode[];
   homepage: HomepageContent;
   settings: StoreSettings;
+  siteSettings: SiteSettings;
   orders: OrderRecord[];
 };
 
@@ -306,6 +310,7 @@ export async function loadAdminStore(): Promise<AdminStoreData> {
     slug: stringField(row, "slug"),
     image: stringField(row, "image", ""),
     arabic: stringField(row, "arabic", ""),
+    active: booleanField(row, "active", true),
   }));
   const roleRows = asRows(roleResult.data);
   const permissionRows = asRows(permissionResult.data);
@@ -372,7 +377,7 @@ export async function loadAdminStore(): Promise<AdminStoreData> {
       secondaryCta: homepageRow ? stringField(homepageRow, "secondary_cta") : "",
       announcement: homepageRow ? stringField(homepageRow, "announcement") : "",
       tickerMessages: homepageRow
-        ? homepageRow.ticker_messages == null
+        ? homepageRow["ticker_messages"] == null
           ? defaultTickerMessages
           : stringArrayField(homepageRow, "ticker_messages")
         : defaultTickerMessages,
@@ -388,7 +393,67 @@ export async function loadAdminStore(): Promise<AdminStoreData> {
       supportEmail: settingsRow ? stringField(settingsRow, "support_email") : "",
       timezone: settingsRow ? stringField(settingsRow, "timezone") : "Africa/Cairo",
     },
+    siteSettings: {
+      phone: settingsRow ? stringField(settingsRow, "phone", "") : "",
+      whatsapp: settingsRow ? stringField(settingsRow, "whatsapp", "") : "",
+      address: settingsRow ? stringField(settingsRow, "address", "") : "",
+      email: settingsRow ? stringField(settingsRow, "email", "") : "",
+      googleMapsUrl: settingsRow ? stringField(settingsRow, "google_maps_url", "") : "",
+      instagramUrl: settingsRow ? stringField(settingsRow, "instagram_url", "") : "",
+      facebookUrl: settingsRow ? stringField(settingsRow, "facebook_url", "") : "",
+      tiktokUrl: settingsRow ? stringField(settingsRow, "tiktok_url", "") : "",
+      instagramEnabled:
+        settingsRow?.["instagram_enabled"] == null
+          ? true
+          : booleanField(settingsRow, "instagram_enabled"),
+      facebookEnabled:
+        settingsRow?.["facebook_enabled"] == null
+          ? true
+          : booleanField(settingsRow, "facebook_enabled"),
+      tiktokEnabled:
+        settingsRow?.["tiktok_enabled"] == null
+          ? true
+          : booleanField(settingsRow, "tiktok_enabled"),
+      showBestSellers:
+        settingsRow?.["show_best_sellers"] == null
+          ? true
+          : booleanField(settingsRow, "show_best_sellers"),
+      showNewDrops:
+        settingsRow?.["show_new_drops"] == null
+          ? true
+          : booleanField(settingsRow, "show_new_drops"),
+    },
     orders: asRows(orderResult.data).map(mapOrder),
+  };
+}
+
+export async function loadSiteSettings(): Promise<SiteSettings> {
+  const { data, error } = await getSupabaseClient()
+    .from("store_settings")
+    .select(
+      "phone, whatsapp, address, email, google_maps_url, instagram_url, facebook_url, tiktok_url, instagram_enabled, facebook_enabled, tiktok_enabled, show_best_sellers, show_new_drops",
+    )
+    .eq("singleton", true)
+    .maybeSingle();
+  fail("Could not load site settings", error);
+  const row = data == null ? null : asRow(data);
+  return {
+    phone: row ? stringField(row, "phone", "") : "",
+    whatsapp: row ? stringField(row, "whatsapp", "") : "",
+    address: row ? stringField(row, "address", "") : "",
+    email: row ? stringField(row, "email", "") : "",
+    googleMapsUrl: row ? stringField(row, "google_maps_url", "") : "",
+    instagramUrl: row ? stringField(row, "instagram_url", "") : "",
+    facebookUrl: row ? stringField(row, "facebook_url", "") : "",
+    tiktokUrl: row ? stringField(row, "tiktok_url", "") : "",
+    instagramEnabled:
+      row?.["instagram_enabled"] == null ? true : booleanField(row, "instagram_enabled"),
+    facebookEnabled:
+      row?.["facebook_enabled"] == null ? true : booleanField(row, "facebook_enabled"),
+    tiktokEnabled: row?.["tiktok_enabled"] == null ? true : booleanField(row, "tiktok_enabled"),
+    showBestSellers:
+      row?.["show_best_sellers"] == null ? true : booleanField(row, "show_best_sellers"),
+    showNewDrops: row?.["show_new_drops"] == null ? true : booleanField(row, "show_new_drops"),
   };
 }
 
@@ -405,7 +470,7 @@ export async function saveStoreProduct(product: StoreProduct): Promise<StoreProd
   const supabase = getSupabaseClient();
   const { data: category, error: categoryError } = await supabase
     .from("categories")
-    .select("id")
+    .select("id, active")
     .eq("name", product.category)
     .maybeSingle();
   fail("Could not find product category", categoryError);
@@ -427,7 +492,7 @@ export async function saveStoreProduct(product: StoreProduct): Promise<StoreProd
     colors: product.colors,
     sizes: product.sizes,
     variants: product.variants,
-    active: true,
+    active: category?.active ?? true,
     category_id: category?.id ?? null,
   };
   if (isUuid(product.id)) payload["id"] = product.id;
@@ -618,6 +683,45 @@ export async function saveStoreSettings(settings: StoreSettings) {
     timezone: settings.timezone,
   });
   fail("Could not save store settings", error);
+}
+
+function validateOptionalUrl(value: string, label: string) {
+  if (!value.trim()) return;
+  try {
+    const url = new URL(value.trim());
+    if (!["http:", "https:"].includes(url.protocol)) throw new Error();
+  } catch {
+    throw new UserInputError(`${label} must be a valid HTTP or HTTPS URL.`);
+  }
+}
+
+export async function saveSiteSettings(settings: SiteSettings) {
+  validateOptionalUrl(settings.googleMapsUrl, "Google Maps URL");
+  validateOptionalUrl(settings.instagramUrl, "Instagram URL");
+  validateOptionalUrl(settings.facebookUrl, "Facebook URL");
+  validateOptionalUrl(settings.tiktokUrl, "TikTok URL");
+  const { data: userData, error: userError } = await getSupabaseClient().auth.getUser();
+  fail("Could not verify settings editor", userError);
+  if (!userData.user) throw new Error("You must be signed in to save site settings.");
+  const { error } = await getSupabaseClient().from("store_settings").upsert({
+    singleton: true,
+    phone: settings.phone.trim(),
+    whatsapp: settings.whatsapp.trim(),
+    address: settings.address.trim(),
+    email: settings.email.trim(),
+    google_maps_url: settings.googleMapsUrl.trim(),
+    instagram_url: settings.instagramUrl.trim(),
+    facebook_url: settings.facebookUrl.trim(),
+    tiktok_url: settings.tiktokUrl.trim(),
+    instagram_enabled: settings.instagramEnabled,
+    facebook_enabled: settings.facebookEnabled,
+    tiktok_enabled: settings.tiktokEnabled,
+    show_best_sellers: settings.showBestSellers,
+    show_new_drops: settings.showNewDrops,
+    updated_by: userData.user.id,
+    updated_at: new Date().toISOString(),
+  });
+  fail("Could not save site settings", error);
 }
 
 export async function uploadProductImage(file: File, altText: string) {

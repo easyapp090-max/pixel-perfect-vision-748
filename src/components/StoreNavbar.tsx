@@ -1,9 +1,10 @@
 import { Link } from "@tanstack/react-router";
-import { Menu, Search, ShieldCheck, ShoppingBag, UserRound, X } from "lucide-react";
+import { Menu, Phone, Search, ShieldCheck, ShoppingBag, UserRound, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Wordmark } from "@/components/Wordmark";
 import { getCartCount } from "@/lib/cart";
+import { useSiteSettings } from "@/hooks/use-site-settings";
 
 const categoryLinks = [
   { label: "HOME", to: "/" },
@@ -16,6 +17,7 @@ const categoryLinks = [
 export function StoreNavbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [cartCount, setCartCount] = useState(getCartCount);
+  const settings = useSiteSettings();
 
   useEffect(() => {
     const updateCartCount = () => setCartCount(getCartCount());
@@ -60,6 +62,11 @@ export function StoreNavbar() {
           </Link>
 
           <div className="flex items-center gap-4">
+            {settings.phone ? (
+              <a href={`tel:${settings.phone}`} aria-label={`Call ${settings.phone}`}>
+                <Phone className="h-5 w-5" />
+              </a>
+            ) : null}
             <Link to="/products" aria-label="Search products">
               <Search className="hidden h-5 w-5 md:block" />
             </Link>
