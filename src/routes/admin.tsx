@@ -1,5 +1,16 @@
 import { createFileRoute, Link, Outlet, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, LogOut, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  CalendarDays,
+  CreditCard,
+  LogOut,
+  MapPin,
+  Package,
+  Pencil,
+  Plus,
+  Trash2,
+  Truck,
+} from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Area,
@@ -73,7 +84,7 @@ type AdminEditor =
   "product" | "category" | "promo" | "customer" | "customer-invite" | "homepage" | null;
 
 type AdminDetail = {
-  type: "product" | "category" | "customer" | "promo" | "homepage";
+  type: "product" | "category" | "customer" | "promo" | "homepage" | "order";
   id?: string;
 };
 
@@ -181,6 +192,7 @@ export function AdminPage() {
   const [editor, setEditor] = useState<AdminEditor>(null);
   const [selectedDetail, setSelectedDetail] = useState<AdminDetail | null>(null);
   const [orders, setOrders] = useState<OrderRecord[]>([]);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [categories, setCategories] = useState<StoreCategory[]>([]);
   const [collections, setCollections] = useState<StoreCollection[]>([]);
@@ -239,6 +251,7 @@ export function AdminPage() {
         const data: AdminStoreData = await loadAdminStore();
         if (!active) return;
         setOrders(data.orders);
+        setExpandedOrderId(null);
         setProducts(data.products);
         setCategories(data.categories);
         setCollections(data.collections);
@@ -1715,52 +1728,374 @@ export function AdminPage() {
         </section>
       )}
 
-      {activeTab === "orders" && (
-        <div className="border p-5">
-          <h2 className="mb-4 font-display text-3xl uppercase">Order management</h2>
-          <div className="space-y-3">
+      {activeTab === "orders" &&
+        (selectedDetail?.type === "order" ? (
+          (() => {
+            const order = orders.find((entry) => entry.id === selectedDetail.id);
+            if (!order) return null;
+            return (
+              <AdminPagePanel
+                eyebrow={`Order / ${order.status}`}
+                title={`Order ${order.id}`}
+                onBack={() => setSelectedDetail(null)}
+                actions={
+                  <span className={`admin-status status-${order.status.toLowerCase()}`}>
+                    {order.status}
+                  </span>
+                }
+              >
+                <div className="admin-order-detail-page">
+                  <div className="admin-detail-grid">
+                    <div className="admin-detail-card">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-[#d94b2b]" />
+                        <p className="admin-detail-label">Customer</p>
+                      </div>
+                      <p className="mt-3 text-base font-semibold">{order.customer.fullName}</p>
+                      <a
+                        href={`tel:${order.customer.phone}`}
+                        className="mt-2 block text-sm underline underline-offset-4"
+                      >
+                        {order.customer.phone}
+                      </a>
+                    </div>
+                    <div className="admin-detail-card">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-[#d94b2b]" />
+                        <p className="admin-detail-label">Delivery address</p>
+                      </div>
+                      <p className="mt-3 text-sm font-medium">{order.customer.address}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {order.customer.city}, {order.customer.governorate}
+                      </p>
+                    </div>
+                    <div className="admin-detail-card">
+                      <div className="flex items-center gap-2">
+                        <Truck className="h-4 w-4 text-[#d94b2b]" />
+                        <p className="admin-detail-label">Delivery</p>
+                      </div>
+                      <p className="mt-3 text-sm font-medium">{order.deliveryMethod}</p>
+                      <p className="mt-2 break-words text-xs text-muted-foreground">
+                        Tracking: {order.tracking || "Not assigned"}
+                      </p>
+                    </div>
+                    <div className="admin-detail-card">
+                      <div className="flex items-center gap-2">
+                        <CreditCard className="h-4 w-4 text-[#d94b2b]" />
+                        <p className="admin-detail-label">Payment</p>
+                      </div>
+                      <p className="mt-3 text-sm font-medium">{order.paymentMethod}</p>
+                      <p className="mt-2 text-xs text-muted-foreground">{order.paymentStatus}</p>
+                    </div>
+                  </div>
+
+                  {order.customer.notes ? (
+                    <div className="mt-4 border-l-4 border-[#d94b2b] bg-foreground/3 p-4">
+                      <p className="admin-detail-label">Customer notes</p>
+                      <p className="mt-2 text-sm">{order.customer.notes}</p>
+                    </div>
+                  ) : null}
+
+                  <div className="mt-6 overflow-hidden border border-foreground/10">
+                    <div className="hidden grid-cols-[1fr_140px_140px] gap-4 bg-foreground/4 px-4 py-3 font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground md:grid">
+                      <span>Product</span>
+                      <span>Quantity</span>
+                      <span className="text-right">Amount</span>
+                    </div>
+                    {order.items.map((item) => (
+                      <div
+                        key={item.id}
+                        className="grid gap-3 border-b border-foreground/10 p-4 last:border-b-0 md:grid-cols-[1fr_140px_140px]"
+                      >
+                        <div>
+                          <p className="font-semibold">{item.name}</p>
+                          <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                            Size: {item.size || "One size"} · Color: {item.color || "Standard"}
+                          </p>
+                        </div>
+                        <p className="text-sm md:self-center">{item.quantity}</p>
+                        <p className="font-mono text-sm font-medium md:text-right">
+                          EGP {(Number(item.price) * item.quantity).toLocaleString("en-US")}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-5 grid gap-2 border-t border-foreground/10 pt-5 md:ml-auto md:max-w-sm">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Subtotal</span>
+                      <span>EGP {Number(order.subtotal).toLocaleString("en-US")}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Discount</span>
+                      <span>- EGP {Number(order.discount).toLocaleString("en-US")}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Shipping</span>
+                      <span>EGP {Number(order.shipping).toLocaleString("en-US")}</span>
+                    </div>
+                    <div className="mt-2 flex justify-between border-t border-foreground/15 pt-3 font-display text-2xl uppercase">
+                      <span>Total</span>
+                      <span>EGP {Number(order.total).toLocaleString("en-US")}</span>
+                    </div>
+                  </div>
+
+                  <div className="admin-order-controls mt-6 border-t border-foreground/10">
+                    <label className="admin-control-label">
+                      <span>Order status</span>
+                      <select
+                        value={order.status}
+                        onChange={(event) =>
+                          updateOrderStatus(order.id, event.target.value as OrderRecord["status"])
+                        }
+                        className="border border-input bg-background px-3 py-3"
+                      >
+                        {["Pending", "Confirmed", "Packed", "Shipped", "Delivered", "Cancelled"].map(
+                          (status) => (
+                            <option key={status} value={status}>
+                              {status}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                    </label>
+                    <label className="admin-control-label">
+                      <span>Payment status</span>
+                      <select
+                        value={order.paymentStatus}
+                        onChange={(event) =>
+                          updateOrderPaymentStatus(
+                            order.id,
+                            event.target.value as OrderRecord["paymentStatus"],
+                          )
+                        }
+                        className="border border-input bg-background px-3 py-3"
+                      >
+                        {["Pending", "Completed", "Failed"].map((status) => (
+                          <option key={status} value={status}>
+                            {status}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="admin-control-label md:col-span-2 xl:col-span-1">
+                      <span>Tracking number</span>
+                      <div className="flex">
+                        <input
+                          value={order.tracking}
+                          onChange={(event) =>
+                            setOrders((current) =>
+                              current.map((entry) =>
+                                entry.id === order.id
+                                  ? { ...entry, tracking: event.target.value }
+                                  : entry,
+                              ),
+                            )
+                          }
+                          className="min-w-0 flex-1 border border-r-0 border-input bg-background px-3 py-3"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => saveOrderTracking(order)}
+                          className="border border-foreground bg-foreground px-4 py-3 font-mono text-[10px] uppercase tracking-[0.15em] text-background"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </AdminPagePanel>
+            );
+          })()
+        ) : (
+          <div className="admin-orders border p-5">
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                Fulfillment desk
+              </p>
+              <h2 className="mt-1 font-display text-4xl uppercase md:text-5xl">Order management</h2>
+            </div>
+            <div className="border border-foreground/10 bg-background px-4 py-3 text-right">
+              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                Active orders
+              </p>
+              <p className="mt-1 font-display text-3xl uppercase">{orders.length}</p>
+            </div>
+          </div>
+          {orders.length === 0 ? (
+            <div className="border border-dashed p-10 text-center">
+              <Package className="mx-auto h-8 w-8 text-muted-foreground" />
+              <p className="mt-4 font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                No orders to manage
+              </p>
+            </div>
+          ) : null}
+          <div className="space-y-4">
             {orders.map((order) => (
               <div
                 key={order.id}
-                className="flex flex-col gap-3 border p-4 md:flex-row md:items-center md:justify-between"
+                className="admin-order-card"
               >
-                <div>
-                  <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                    {order.id}
-                  </p>
-                  <p className="mt-1 font-medium uppercase">{order.customer.fullName}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {order.customer.phone} · {order.customer.city}, {order.customer.governorate}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    EGP {Number(order.total).toLocaleString("en-US")}
-                  </p>
-                  <ul className="mt-2 space-y-1 text-xs">
-                    {order.items.map((item) => (
-                      <li key={item.id}>
-                        {item.quantity} × {item.name} · {item.size} / {item.color}
-                      </li>
-                    ))}
-                  </ul>
+                <div className="admin-order-summary">
+                  <div className="flex min-w-0 items-start gap-4">
+                    <div className="admin-order-mark">
+                      <Package className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                        Order {order.id}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedDetail({ type: "order", id: order.id })
+                        }
+                        className="mt-1 block text-left"
+                      >
+                        <span className="font-display text-3xl uppercase">
+                          {order.customer.fullName}
+                        </span>
+                      </button>
+                      <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <CalendarDays className="h-3.5 w-3.5" />
+                        {new Date(order.createdAt).toLocaleDateString("en-US", {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDetail({ type: "order", id: order.id })}
+                        className="admin-view-order-button mt-3"
+                      >
+                        View order details
+                      </button>
+                    </div>
+                  </div>
+                  <div className="admin-order-total">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                      Order total
+                    </p>
+                    <p className="mt-1 font-display text-3xl">
+                      EGP {Number(order.total).toLocaleString("en-US")}
+                    </p>
+                    <span className={`admin-status status-${order.status.toLowerCase()}`}>
+                      {order.status}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <select
-                    value={order.status}
-                    onChange={(event) =>
-                      updateOrderStatus(order.id, event.target.value as OrderRecord["status"])
-                    }
-                    className="border border-input bg-background px-3 py-2 font-mono text-[10px] uppercase tracking-[0.2em] outline-none"
-                  >
-                    {["Pending", "Confirmed", "Packed", "Shipped", "Delivered", "Cancelled"].map(
-                      (status) => (
-                        <option key={status} value={status}>
-                          {status}
-                        </option>
-                      ),
-                    )}
-                  </select>
-                  <label className="font-mono text-[10px] uppercase tracking-[0.2em]">
-                    Payment
+
+                {expandedOrderId === order.id ? (
+                  <div className="admin-order-details">
+                    <div className="admin-detail-grid">
+                      <div className="admin-detail-card">
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-4 w-4 text-[#d94b2b]" />
+                          <p className="admin-detail-label">Delivery address</p>
+                        </div>
+                        <p className="mt-3 text-sm font-medium">{order.customer.fullName}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {order.customer.address}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {order.customer.city}, {order.customer.governorate}
+                        </p>
+                        <p className="mt-2 text-xs">{order.customer.phone}</p>
+                      </div>
+                      <div className="admin-detail-card">
+                        <div className="flex items-center gap-2">
+                          <Truck className="h-4 w-4 text-[#d94b2b]" />
+                          <p className="admin-detail-label">Shipment</p>
+                        </div>
+                        <p className="mt-3 text-sm font-medium">{order.deliveryMethod}</p>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Tracking: {order.tracking || "Not assigned"}
+                        </p>
+                        {order.customer.notes ? (
+                          <p className="mt-2 text-xs">
+                            <span className="text-muted-foreground">Notes:</span>{" "}
+                            {order.customer.notes}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="admin-detail-card">
+                        <div className="flex items-center gap-2">
+                          <CreditCard className="h-4 w-4 text-[#d94b2b]" />
+                          <p className="admin-detail-label">Payment</p>
+                        </div>
+                        <p className="mt-3 text-sm font-medium">{order.paymentMethod}</p>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          {order.paymentStatus}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 overflow-hidden border border-foreground/10">
+                      {order.items.map((item) => (
+                        <div
+                          key={item.id}
+                          className="grid gap-3 border-b border-foreground/10 p-4 last:border-b-0 md:grid-cols-[1fr_auto]"
+                        >
+                          <div>
+                            <p className="font-medium">{item.name}</p>
+                            <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                              {item.size || "One size"} · {item.color || "Standard"}
+                            </p>
+                          </div>
+                          <div className="text-left md:text-right">
+                            <p className="font-mono text-xs">
+                              EGP {Number(item.price).toLocaleString("en-US")} × {item.quantity}
+                            </p>
+                            <p className="mt-1 font-mono text-[10px] uppercase text-muted-foreground">
+                              Line total EGP{" "}
+                              {(Number(item.price) * item.quantity).toLocaleString("en-US")}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-4 grid gap-2 md:ml-auto md:max-w-xs">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Subtotal</span>
+                        <span>EGP {Number(order.subtotal).toLocaleString("en-US")}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Discount</span>
+                        <span>- EGP {Number(order.discount).toLocaleString("en-US")}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Shipping</span>
+                        <span>EGP {Number(order.shipping).toLocaleString("en-US")}</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="admin-order-controls">
+                  <label className="admin-control-label">
+                    <span>Status</span>
+                    <select
+                      value={order.status}
+                      onChange={(event) =>
+                        updateOrderStatus(order.id, event.target.value as OrderRecord["status"])
+                      }
+                      className="border border-input bg-background px-3 py-2 font-mono text-[10px] uppercase tracking-[0.15em] outline-none"
+                    >
+                      {["Pending", "Confirmed", "Packed", "Shipped", "Delivered", "Cancelled"].map(
+                        (status) => (
+                          <option key={status} value={status}>
+                            {status}
+                          </option>
+                        ),
+                      )}
+                    </select>
+                  </label>
+                  <label className="admin-control-label">
+                    <span>Payment</span>
                     <select
                       value={order.paymentStatus}
                       onChange={(event) =>
@@ -1769,7 +2104,7 @@ export function AdminPage() {
                           event.target.value as OrderRecord["paymentStatus"],
                         )
                       }
-                      className="ml-2 border border-input bg-background px-3 py-2 font-mono text-[10px] uppercase tracking-[0.2em] outline-none"
+                      className="border border-input bg-background px-3 py-2 font-mono text-[10px] uppercase tracking-[0.15em] outline-none"
                     >
                       {["Pending", "Completed", "Failed"].map((status) => (
                         <option key={status} value={status}>
@@ -1778,8 +2113,9 @@ export function AdminPage() {
                       ))}
                     </select>
                   </label>
-                  <label className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em]">
-                    Tracking
+                  <label className="admin-control-label md:col-span-2 xl:col-span-1">
+                    <span>Tracking</span>
+                    <div className="flex">
                     <input
                       value={order.tracking}
                       onChange={(event) =>
@@ -1791,21 +2127,23 @@ export function AdminPage() {
                           ),
                         )
                       }
-                      className="w-40 border border-input bg-background px-2 py-2 font-sans text-xs normal-case tracking-normal"
+                      className="min-w-0 flex-1 border border-r-0 border-input bg-background px-3 py-2 text-xs outline-none"
                     />
                     <button
                       type="button"
                       onClick={() => saveOrderTracking(order)}
-                      className="border px-3 py-2 font-mono text-[10px] uppercase tracking-[0.2em]"
+                      className="border border-foreground bg-foreground px-3 py-2 font-mono text-[10px] uppercase tracking-[0.15em] text-background"
                     >
                       Save
                     </button>
+                    </div>
                   </label>
                 </div>
               </div>
             ))}
           </div>
         </div>
+        )
       )}
 
       {activeTab === "customers" && (

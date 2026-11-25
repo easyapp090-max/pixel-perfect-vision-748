@@ -5,12 +5,7 @@ import { getCurrentCustomer, registerCustomer, signInCustomer, signOutCustomer }
 import type { CustomerSession } from "@/lib/auth";
 import { loadCustomerOrders } from "@/lib/store-api";
 import { getUserFacingError } from "@/lib/user-messages";
-
-type AccountOrder = {
-  id: string;
-  status?: string;
-  total?: number | string;
-};
+import type { OrderRecord } from "@/lib/cart";
 
 export const Route = createFileRoute("/account")({
   component: AccountPage,
@@ -22,7 +17,7 @@ function AccountPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [customer, setCustomer] = useState<CustomerSession | null>(null);
-  const [orders, setOrders] = useState<AccountOrder[]>([]);
+  const [orders, setOrders] = useState<OrderRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ fullName: "", email: "", password: "", phone: "" });
 
@@ -149,21 +144,90 @@ function AccountPage() {
                 No orders have been placed yet. Once you place an order, it will appear here.
               </p>
             ) : (
-              <div className="space-y-3">
-                {orders.map((order: AccountOrder) => (
-                  <div key={order.id} className="border p-4">
-                    <div className="flex items-center justify-between gap-4">
+              <div className="space-y-4">
+                {orders.map((order) => (
+                  <article key={order.id} className="overflow-hidden border bg-card shadow-sm">
+                    <div className="flex items-start justify-between gap-4 border-b p-4">
                       <div>
                         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                          #{order.id}
+                          Order #{order.id}
                         </p>
-                        <p className="mt-1 text-sm uppercase">{order.status}</p>
+                        <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.15em]">
+                          {order.status}
+                        </p>
                       </div>
-                      <span className="font-mono text-sm">
-                        EGP {Number(order.total ?? 0).toLocaleString("en-US")}
-                      </span>
+                      <div className="text-right">
+                        <p className="font-mono text-sm">
+                          EGP {Number(order.total).toLocaleString("en-US")}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {new Date(order.createdAt).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </p>
+                      </div>
                     </div>
-                  </div>
+
+                    <div className="p-4">
+                      <div className="space-y-2">
+                        {order.items.map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex items-start justify-between gap-4 border-b border-border/60 pb-2 last:border-0 last:pb-0"
+                          >
+                            <div>
+                              <p className="text-sm font-medium">{item.name}</p>
+                              <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                                {item.quantity} × {item.size || "One size"} · {item.color || "Standard"}
+                              </p>
+                            </div>
+                            <p className="shrink-0 font-mono text-xs">
+                              EGP {(Number(item.price) * item.quantity).toLocaleString("en-US")}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+
+                      <dl className="mt-4 grid gap-3 border-t pt-4 sm:grid-cols-2">
+                        <div>
+                          <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+                            Delivery
+                          </dt>
+                          <dd className="mt-1 text-xs">
+                            {order.deliveryMethod}
+                            {order.tracking ? ` · ${order.tracking}` : ""}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+                            Address
+                          </dt>
+                          <dd className="mt-1 text-xs">
+                            {order.customer.address}, {order.customer.city},{" "}
+                            {order.customer.governorate}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+                            Payment
+                          </dt>
+                          <dd className="mt-1 text-xs">
+                            {order.paymentMethod} · {order.paymentStatus}
+                          </dd>
+                        </div>
+                        {order.promoCode ? (
+                          <div>
+                            <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+                              Promo
+                            </dt>
+                            <dd className="mt-1 text-xs">{order.promoCode}</dd>
+                          </div>
+                        ) : null}
+                      </dl>
+                    </div>
+                  </article>
                 ))}
               </div>
             )}
