@@ -1,0 +1,11 @@
+.env
+.env.*
+*.local
+.git
+**/.git
+node_modules
+**/node_modules
+.output
+dist
+pixel-perfect-vision-748
+s

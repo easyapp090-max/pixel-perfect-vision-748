@@ -267,47 +267,51 @@ function Index() {
         </section>
       ) : null}
 
-      <section className="relative bg-primary text-primary-foreground">
-        <div className="mx-auto grid max-w-[1600px] md:grid-cols-2">
-          <div className="grain relative aspect-square md:aspect-auto">
-            <img
-              src={siteImages.tee}
-              alt="Limited Fracture Tee"
-              loading="lazy"
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-          </div>
-
-          <div className="flex flex-col justify-center gap-6 px-6 py-16 md:px-16">
-            <p className="font-mono text-xs tracking-[0.3em] opacity-60">
-              (05) LIMITED — 150 PIECES ONLY
-            </p>
-            <h2 className="font-display text-6xl uppercase leading-[0.85] md:text-8xl">
-              The
-              <br />
-              Fracture
-              <br />
-              Run
-            </h2>
-            <p className="max-w-md text-sm opacity-70">
-              Hand-cracked screen print on 280gsm washed cotton. Numbered inside the neck. The next
-              drop is configured from the admin dashboard.
-            </p>
-            <div className="flex flex-col gap-2 border border-primary-foreground/30 p-4 font-mono text-xs tracking-[0.2em] uppercase">
-              <span>Campaign window</span>
-              <span className="text-primary-foreground/70">Managed from admin settings</span>
+<section className="relative overflow-hidden bg-black text-white py-16 sm:py-20 lg:py-28 border-y border-white/15">
+        <div className="mx-auto max-w-[1600px] px-5 sm:px-8 lg:px-12">
+          <div className="grid gap-10 lg:grid-cols-12 items-center">
+            
+            <div className="lg:col-span-7">
+              <p className="font-mono text-[10px] sm:text-xs tracking-[0.35em] text-white/50 uppercase mb-4">
+                /// 5ADSH — EGYPTIAN STREET ARCHIVE
+              </p>
+              <h3
+                dir="rtl"
+                className="font-arabic text-4xl sm:text-5xl lg:text-7xl leading-[1.15] text-white font-bold text-left"
+              >
+                لكل قصة حكاية.. <br />
+                وفهد بطل الحكاية.
+              </h3>
+              <p className="font-display text-xl sm:text-2xl lg:text-4xl uppercase tracking-wider text-white/75 mt-5">
+                FROM ALEX TO ASWAN. ONE STREET.
+              </p>
             </div>
-            <button
-              onClick={() => handleAddToCart(newDrops[0])}
-              disabled={!newDrops[0]}
-              className="w-fit bg-primary-foreground px-8 py-4 font-mono text-sm tracking-widest text-primary transition hover:tracking-[0.3em]"
+
+            <div
+              dir="rtl"
+              className="lg:col-span-5 flex flex-col gap-6 border-t pt-8 lg:pt-0 lg:border-t-0 lg:border-l border-white/25 lg:pl-10"
             >
-              CLAIM YOURS — EGP 1,450
-            </button>
+              <p className="font-mono text-xs tracking-widest text-white/50">
+                [ حكايات فهد // من قلب الشارع ]
+              </p>
+              <p className="font-arabic text-base sm:text-lg text-white/90 leading-relaxed">
+                القطعة من خدش ليها أثر يعيش سنين طويلة زي النقش على الحجر.. فهد بيمثل كل شاب عارف سكته وبيسيب بصمته في أي مكان يخطيه.
+              </p>
+              <div className="flex flex-wrap items-center gap-4 pt-2" dir="ltr">
+                <span className="inline-block border border-white/40 px-4 py-2 font-mono text-xs tracking-[0.25em] uppercase text-white">
+                  FAHD // EGYPT 26
+                </span>
+                <span className="font-mono text-xs text-white/50">
+                  ALL OVER EGYPT — +20
+                </span>
+              </div>
+            </div>
+
           </div>
         </div>
       </section>
 
+    
       <section className="mx-auto max-w-[1600px] px-4 py-28 md:px-8">
         <div className="grid gap-10 md:grid-cols-12">
           <span className="font-arabic text-[40vw] leading-[0.7] md:col-span-5 md:text-[18vw]">
