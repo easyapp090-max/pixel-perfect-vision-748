@@ -70,7 +70,7 @@ export type CustomerProfile = {
   name: string;
   email: string;
   phone: string;
-  role: "customer" | "admin" | "staff" | "owner";
+  role: "customer" | "admin" | "staff" | "moderator" | "owner";
   permissions: StorePermission[];
   status: "active" | "blocked";
 };

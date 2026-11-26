@@ -334,11 +334,12 @@ export async function loadAdminStore(): Promise<AdminStoreData> {
           "manage_discounts",
           "manage_content",
           "manage_settings",
+          "manage_accounts",
         ].includes(permission),
       );
     const matchingRole = roles.find((row) => stringField(row, "role") !== "customer");
     const role = matchingRole ? stringField(matchingRole, "role") : "customer";
-    if (!["customer", "staff", "admin", "owner"].includes(role)) {
+    if (!["customer", "staff", "admin", "moderator", "owner"].includes(role)) {
       throw new Error("The database returned an unsupported customer role.");
     }
     return {
@@ -632,12 +633,38 @@ export async function setAssistantAccess(userId: string, enabled: boolean) {
   fail("Could not update assistant access", error);
 }
 
+export async function findStoreCustomerIdByEmail(email: string): Promise<string> {
+  const { data, error } = await getSupabaseClient()
+    .from("profiles")
+    .select("id")
+    .eq("email", email.trim().toLowerCase())
+    .maybeSingle();
+  fail("Could not find the invited account", error);
+  if (!data) {
+    throw new Error("The invited account profile is not available yet.");
+  }
+  return stringField(asRow(data), "id");
+}
+
 export async function setAssistantPermissions(userId: string, permissions: StorePermission[]) {
   const { error } = await getSupabaseClient().rpc("set_assistant_permissions", {
     p_user_id: userId,
     p_permissions: permissions,
   });
   fail("Could not update assistant permissions", error);
+}
+
+export async function setAccountAccess(
+  userId: string,
+  role: "customer" | "admin" | "assistant" | "moderator",
+  permissions: StorePermission[],
+) {
+  const { error } = await getSupabaseClient().rpc("set_account_access", {
+    p_user_id: userId,
+    p_role: role === "assistant" ? "staff" : role,
+    p_permissions: permissions,
+  });
+  fail("Could not update account access", error);
 }
 
 export async function updateOrderStatus(orderId: string, status: OrderRecord["status"]) {

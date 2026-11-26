@@ -52,6 +52,7 @@ import {
   deleteStoreCategory,
   deleteStoreCoupon,
   deleteStoreCustomer,
+  findStoreCustomerIdByEmail,
   loadAdminStore,
   saveHomepageContent,
   saveStoreCategory,
@@ -59,8 +60,7 @@ import {
   saveStoreCoupon,
   saveStoreProduct,
   saveStoreSettings,
-  setAssistantAccess,
-  setAssistantPermissions,
+  setAccountAccess,
   updateStoreCustomerProfile,
   updateOrderDetails as updateStoreOrderDetails,
   updateOrderStatus as updateStoreOrderStatus,
@@ -88,6 +88,8 @@ type AdminDetail = {
   id?: string;
 };
 
+type ManagedAccountRole = "customer" | "admin" | "assistant" | "moderator";
+
 const permissionLabels: Array<{ value: StorePermission; label: string }> = [
   { value: "manage_products", label: "Products" },
   { value: "manage_orders", label: "Orders" },
@@ -95,14 +97,24 @@ const permissionLabels: Array<{ value: StorePermission; label: string }> = [
   { value: "manage_discounts", label: "Discounts" },
   { value: "manage_content", label: "Content" },
   { value: "manage_settings", label: "Settings" },
+  { value: "manage_accounts", label: "Accounts" },
 ];
+
+const accountRoleLabel = (role: CustomerProfile["role"]) =>
+  role === "staff"
+    ? "Assistant"
+    : role === "admin"
+      ? "Admin"
+      : role === "moderator"
+        ? "Moderator"
+        : role;
 
 const emptyProduct = (): StoreProduct => ({
   id: "",
   slug: "",
   name: "",
-  category: "T-Shirts",
-  subcategory: "T-Shirts",
+  category: "",
+  subcategory: "",
   audience: "all",
   price: 0,
   salePrice: 0,
@@ -239,6 +251,8 @@ export function AdminPage() {
     email: "",
     phone: "",
   });
+  const [customerInviteRole, setCustomerInviteRole] = useState<ManagedAccountRole>("customer");
+  const [customerInvitePermissions, setCustomerInvitePermissions] = useState<StorePermission[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -276,6 +290,17 @@ export function AdminPage() {
 
   const accessAllowed = hasAdminAccess(adminSession);
   const isOwner = adminSession?.role === "owner";
+  const canManageAccounts =
+    isOwner ||
+    adminSession?.role === "admin" ||
+    Boolean(adminSession?.permissions.includes("manage_accounts"));
+  const assistantCount = customers.filter((customer) => customer.role === "staff").length;
+  const invitedAccount = customers.find(
+    (customer) =>
+      customer.email.trim().toLowerCase() === customerInviteDraft.email.trim().toLowerCase(),
+  );
+  const assistantLimitReached =
+    assistantCount >= 5 && invitedAccount?.role !== "staff";
 
   const metrics = useMemo(() => {
     const revenue = orders.reduce((sum, order) => sum + Number(order.total ?? 0), 0);
@@ -329,8 +354,16 @@ export function AdminPage() {
           ? productDraft.variants
           : [{ id: "", size: "M", color: "Black", stock: 0 }],
       };
-      if (!trimmed.name.trim() || !trimmed.slug || !trimmed.sku || trimmed.price < 0) {
-        throw new Error("Product name, slug, SKU, and a non-negative price are required.");
+      if (
+        !trimmed.name.trim() ||
+        !trimmed.category.trim() ||
+        !trimmed.slug ||
+        !trimmed.sku ||
+        trimmed.price < 0
+      ) {
+        throw new Error(
+          "Product name, category, slug, SKU, and a non-negative price are required.",
+        );
       }
       const saved = await saveStoreProduct({ ...trimmed, id: editingProductId ?? "" });
       setProducts((current) =>
@@ -422,15 +455,47 @@ export function AdminPage() {
 
   const sendCustomerInvite = () =>
     runAction(async () => {
-      await inviteCustomerByEmail({
-        fullName: customerInviteDraft.name,
-        email: customerInviteDraft.email,
-        phone: customerInviteDraft.phone,
-      });
-      setCustomerInviteDraft({ name: "", email: "", phone: "" });
-      setSelectedDetail(null);
-      setEditor(null);
-      setActionSuccess(`A sign-in link was sent to ${customerInviteDraft.email.trim()}.`);
+      if (invitedAccount?.role === "owner") {
+        throw new Error("The owner account cannot be managed here.");
+      }
+      if (customerInviteRole === "assistant" && assistantLimitReached) {
+        throw new Error("The store can have no more than five assistants.");
+      }
+
+      let invitationSent = false;
+      try {
+        await inviteCustomerByEmail({
+          fullName: customerInviteDraft.name,
+          email: customerInviteDraft.email,
+          phone: customerInviteDraft.phone,
+        });
+        invitationSent = true;
+
+        const customerId = await findStoreCustomerIdByEmail(customerInviteDraft.email);
+        await setAccountAccess(
+          customerId,
+          customerInviteRole,
+          customerInviteRole === "customer" ? [] : customerInvitePermissions,
+        );
+
+        const refreshed = await loadAdminStore();
+        setCustomers(refreshed.customers);
+        setCustomerInviteDraft({ name: "", email: "", phone: "" });
+        setCustomerInviteRole("customer");
+        setCustomerInvitePermissions([]);
+        setSelectedDetail(null);
+        setEditor(null);
+        setActionSuccess(
+          `A sign-in link was sent to ${customerInviteDraft.email.trim()}; ${customerInviteRole} access was configured.`,
+        );
+      } catch (cause) {
+        if (invitationSent) {
+          throw new Error(
+            `The sign-in link was sent, but account setup could not be verified: ${getUserFacingError(cause, "Refresh the accounts page and try again.")}`,
+          );
+        }
+        throw cause;
+      }
     });
 
   const removeCustomer = (customer: CustomerProfile) => {
@@ -486,21 +551,42 @@ export function AdminPage() {
   const saveOrderTracking = (order: OrderRecord) =>
     runAction(() => updateStoreOrderDetails(order.id, { tracking: order.tracking }));
 
-  const updateAssistantAccess = (customerId: string, enabled: boolean) =>
+  const updateAccountRole = (customerId: string, role: ManagedAccountRole) =>
     runAction(async () => {
-      await setAssistantAccess(customerId, enabled);
+      const customer = customers.find((entry) => entry.id === customerId);
+      if (!customer) throw new Error("The selected account could not be found.");
+      if (customer.role === "owner") throw new Error("The owner account cannot be managed here.");
+      if (role === "assistant" && assistantCount >= 5 && customer.role !== "staff") {
+        throw new Error("The store can have no more than five assistants.");
+      }
+      const permissions = role === "customer" ? [] : customer.permissions;
+      await setAccountAccess(customerId, role, permissions);
       setCustomers((current) =>
         current.map((customer) =>
           customer.id === customerId
-            ? { ...customer, role: enabled ? "staff" : "customer", permissions: [] }
+            ? {
+                ...customer,
+                role: role === "assistant" ? "staff" : role,
+                permissions,
+              }
             : customer,
         ),
       );
     });
 
-  const updateAssistantPermissions = (customerId: string, permissions: StorePermission[]) =>
+  const updateAccountPermissions = (customerId: string, permissions: StorePermission[]) =>
     runAction(async () => {
-      await setAssistantPermissions(customerId, permissions);
+      const customer = customers.find((entry) => entry.id === customerId);
+      if (!customer || !["staff", "admin", "moderator"].includes(customer.role)) {
+        throw new Error("Only admin, assistant, and moderator accounts can have access permissions.");
+      }
+      const role =
+        customer.role === "staff"
+          ? "assistant"
+          : customer.role === "moderator"
+            ? "moderator"
+            : "admin";
+      await setAccountAccess(customerId, role, permissions);
       setCustomers((current) =>
         current.map((customer) =>
           customer.id === customerId ? { ...customer, permissions } : customer,
@@ -607,7 +693,7 @@ export function AdminPage() {
       { key: "overview", label: "Overview" },
       { key: "products", label: "Products" },
       { key: "categories", label: "Categories" },
-      { key: "customers", label: "Customers" },
+      { key: "customers", label: "Accounts & access" },
       { key: "promos", label: "Promo codes" },
       { key: "content", label: "Homepage" },
       { key: "orders", label: "Orders" },
@@ -621,7 +707,8 @@ export function AdminPage() {
       (tab.key === "categories" && hasPermission("manage_products")) ||
       (tab.key === "orders" && hasPermission("manage_orders")) ||
       (tab.key === "reports" && hasPermission("manage_orders")) ||
-      (tab.key === "customers" && hasPermission("view_customers")) ||
+      (tab.key === "customers" &&
+        (hasPermission("view_customers") || canManageAccounts)) ||
       (tab.key === "promos" && hasPermission("manage_discounts")) ||
       (tab.key === "content" && hasPermission("manage_content")) ||
       (tab.key === "settings" && hasPermission("manage_settings")),
@@ -1222,14 +1309,36 @@ export function AdminPage() {
                   placeholder="Slug"
                   className="w-full border border-input bg-background px-3 py-2 text-xs uppercase tracking-[0.2em] outline-none"
                 />
-                <input
-                  value={productDraft.category}
-                  onChange={(event) =>
-                    setProductDraft({ ...productDraft, category: event.target.value })
-                  }
-                  placeholder="Category"
-                  className="w-full border border-input bg-background px-3 py-2 text-xs uppercase tracking-[0.2em] outline-none"
-                />
+                <label className="block space-y-2 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                  Category
+                  <select
+                    value={productDraft.category}
+                    onChange={(event) => {
+                      const category = event.target.value;
+                      setProductDraft({
+                        ...productDraft,
+                        category,
+                        subcategory: category,
+                      });
+                    }}
+                    className="w-full border border-input bg-background px-3 py-3 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <option value="" disabled>
+                      {categories.length ? "Select a category" : "No categories available"}
+                    </option>
+                    {productDraft.category &&
+                    !categories.some((category) => category.name === productDraft.category) ? (
+                      <option value={productDraft.category}>
+                        {productDraft.category} (Current)
+                      </option>
+                    ) : null}
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.name}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <label className="block space-y-2 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                   Storefront audience
                   <select
@@ -1635,7 +1744,11 @@ export function AdminPage() {
                             type="button"
                             onClick={() => {
                               setActiveTab("products");
-                              setProductDraft({ ...emptyProduct(), category: category.name });
+                              setProductDraft({
+                                ...emptyProduct(),
+                                category: category.name,
+                                subcategory: category.name,
+                              });
                               setEditingProductId(null);
                               setSelectedDetail(null);
                               setEditor("product");
@@ -2155,11 +2268,13 @@ export function AdminPage() {
               <div className="flex flex-col justify-between gap-4 border-b border-foreground/15 pb-5 sm:flex-row sm:items-end">
                 <div>
                   <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-                    Accounts / {customers.length} profiles
+                    Accounts & access / {customers.length} profiles
                   </p>
-                  <h2 className="mt-1 font-display text-4xl uppercase md:text-5xl">Customers</h2>
+                  <h2 className="mt-1 font-display text-4xl uppercase md:text-5xl">
+                    Accounts & access
+                  </h2>
                 </div>
-                {isOwner ? (
+                {canManageAccounts ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -2170,7 +2285,7 @@ export function AdminPage() {
                     className="inline-flex items-center justify-center gap-2 bg-primary px-4 py-3 font-mono text-[10px] uppercase tracking-[0.2em] text-primary-foreground"
                   >
                     <Plus className="h-4 w-4" />
-                    Add customer
+                    Invite account
                   </button>
                 ) : null}
               </div>
@@ -2178,10 +2293,10 @@ export function AdminPage() {
                 <table className="admin-table w-full min-w-[980px] text-left">
                   <thead>
                     <tr>
-                      <th>Customer</th>
+                      <th>Account</th>
                       <th>Phone</th>
                       <th>Account access</th>
-                      <th>Assistant permissions</th>
+                      <th>Access permissions</th>
                       <th className="text-right">Actions</th>
                     </tr>
                   </thead>
@@ -2209,25 +2324,45 @@ export function AdminPage() {
                         <td>
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="border px-2 py-1 font-mono text-[10px] uppercase">
-                              {customer.role}
+                              {accountRoleLabel(customer.role)}
                             </span>
-                            {isOwner && ["customer", "staff"].includes(customer.role) ? (
+                            {canManageAccounts &&
+                            customer.id !== adminSession?.id &&
+                            ["customer", "staff", "admin", "moderator"].includes(customer.role) ? (
                               <select
-                                value={customer.role === "staff" ? "staff" : "customer"}
+                                value={customer.role === "staff" ? "assistant" : customer.role}
                                 onChange={(event) =>
-                                  updateAssistantAccess(customer.id, event.target.value === "staff")
+                                  updateAccountRole(
+                                    customer.id,
+                                    event.target.value === "assistant"
+                                      ? "assistant"
+                                      : event.target.value === "admin"
+                                        ? "admin"
+                                        : event.target.value === "moderator"
+                                          ? "moderator"
+                                          : "customer",
+                                  )
                                 }
                                 aria-label={`Access for ${customer.name}`}
                                 className="border border-input bg-background px-2 py-1 font-mono text-[10px] uppercase"
                               >
                                 <option value="customer">Customer</option>
-                                <option value="staff">Assistant</option>
+                                <option value="admin">Admin</option>
+                                <option value="moderator">Moderator</option>
+                                <option
+                                  value="assistant"
+                                  disabled={assistantCount >= 5 && customer.role !== "staff"}
+                                >
+                                  Assistant
+                                </option>
                               </select>
                             ) : null}
                           </div>
                         </td>
                         <td>
-                          {isOwner && customer.role === "staff" ? (
+                          {canManageAccounts &&
+                          customer.id !== adminSession?.id &&
+                          ["staff", "admin", "moderator"].includes(customer.role) ? (
                             <div className="flex max-w-[390px] flex-wrap gap-x-3 gap-y-2">
                               {permissionLabels.map((permission) => (
                                 <label
@@ -2236,9 +2371,13 @@ export function AdminPage() {
                                 >
                                   <input
                                     type="checkbox"
-                                    checked={customer.permissions.includes(permission.value)}
+                                    checked={
+                                      customer.permissions.includes(permission.value) ||
+                                      (customer.role === "admin" &&
+                                        permission.value === "manage_accounts")
+                                    }
                                     onChange={(event) =>
-                                      updateAssistantPermissions(
+                                      updateAccountPermissions(
                                         customer.id,
                                         event.target.checked
                                           ? [...customer.permissions, permission.value]
@@ -2247,15 +2386,30 @@ export function AdminPage() {
                                             ),
                                       )
                                     }
+                                    disabled={
+                                      customer.id === adminSession?.id ||
+                                      (customer.role === "admin" &&
+                                        permission.value === "manage_accounts")
+                                    }
                                   />
                                   {permission.label}
                                 </label>
                               ))}
                             </div>
-                          ) : (
+                          ) : ["staff", "admin", "moderator"].includes(customer.role) ? (
                             <span className="text-xs text-muted-foreground">
-                              {customer.role === "staff" ? "No permissions" : "—"}
+                              {customer.permissions.length
+                                ? customer.permissions
+                                    .map(
+                                      (permission) =>
+                                        permissionLabels.find((entry) => entry.value === permission)
+                                          ?.label ?? permission,
+                                    )
+                                    .join(", ")
+                                : "No permissions"}
                             </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
                           )}
                         </td>
                         <td>
@@ -2263,7 +2417,7 @@ export function AdminPage() {
                             <button
                               type="button"
                               onClick={() => editCustomer(customer)}
-                              disabled={!isOwner || customer.role === "owner"}
+                              disabled={!canManageAccounts || customer.role === "owner"}
                               className="inline-flex items-center gap-1 border px-3 py-2 font-mono text-[10px] uppercase tracking-[0.15em] disabled:opacity-40"
                             >
                               <Pencil className="h-3 w-3" />
@@ -2290,7 +2444,7 @@ export function AdminPage() {
                     {customers.length === 0 ? (
                       <tr>
                         <td colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
-                          No customer accounts yet. Add one to send a secure sign-in link.
+                          No accounts yet. Invite an account to send a secure sign-in link.
                         </td>
                       </tr>
                     ) : null}
@@ -2306,7 +2460,7 @@ export function AdminPage() {
                 if (!customer) return null;
                 return (
                   <AdminPagePanel
-                    eyebrow={`Accounts / ${customer.role}`}
+                    eyebrow={`Accounts / ${accountRoleLabel(customer.role)}`}
                     title={customer.name || "Customer profile"}
                     onBack={() => setSelectedDetail(null)}
                     actions={
@@ -2314,11 +2468,11 @@ export function AdminPage() {
                         <button
                           type="button"
                           onClick={() => editCustomer(customer)}
-                          disabled={!isOwner || customer.role === "owner"}
+                          disabled={!canManageAccounts || customer.role === "owner"}
                           className="inline-flex items-center gap-2 bg-primary px-4 py-3 font-mono text-[10px] uppercase tracking-[0.15em] text-primary-foreground disabled:opacity-40"
                         >
                           <Pencil className="h-4 w-4" />
-                          Edit customer
+                          Edit account
                         </button>
                         <button
                           type="button"
@@ -2338,7 +2492,7 @@ export function AdminPage() {
                           { label: "Full name", value: customer.name || "Unnamed customer" },
                           { label: "Email", value: customer.email || "—" },
                           { label: "Phone", value: customer.phone || "—" },
-                          { label: "Account role", value: customer.role },
+                          { label: "Account role", value: accountRoleLabel(customer.role) },
                           { label: "Account status", value: customer.status },
                           {
                             label: "Permissions",
@@ -2354,9 +2508,9 @@ export function AdminPage() {
                           },
                         ]}
                       />
-                      {customer.role === "staff" ? (
+                      {["staff", "admin", "moderator"].includes(customer.role) ? (
                         <section className="admin-detail-card mt-6">
-                          <p className="admin-detail-label">Staff access</p>
+                          <p className="admin-detail-label">Account access</p>
                           <div className="mt-4 flex flex-wrap gap-2">
                             {customer.permissions.length ? (
                               customer.permissions.map((permission) => (
@@ -2385,7 +2539,7 @@ export function AdminPage() {
           {editor === "customer" ? (
             <AdminPagePanel
               eyebrow="Accounts / Edit record"
-              title="Edit customer"
+              title="Edit account"
               onBack={() => setEditor(null)}
             >
               <div className="space-y-4">
@@ -2425,7 +2579,7 @@ export function AdminPage() {
                   onClick={saveCustomer}
                   className="w-full bg-primary px-5 py-3 font-mono text-xs uppercase tracking-[0.2em] text-primary-foreground"
                 >
-                  Save customer
+                  Save account
                 </button>
               </div>
             </AdminPagePanel>
@@ -2434,12 +2588,12 @@ export function AdminPage() {
           {editor === "customer-invite" ? (
             <AdminPagePanel
               eyebrow="Accounts / New record"
-              title="Add customer"
+              title="Invite account"
               onBack={() => setEditor(null)}
             >
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Send a one-time sign-in link. New email addresses get a customer account; existing
+                  Send a one-time sign-in link. New email addresses get an account; existing
                   accounts receive a sign-in link. Your admin session stays signed in.
                 </p>
                 <input
@@ -2467,12 +2621,81 @@ export function AdminPage() {
                   placeholder="Phone number"
                   className="w-full border border-input bg-background px-3 py-3 text-sm"
                 />
+                <label className="block space-y-2 font-mono text-[10px] uppercase tracking-[0.2em]">
+                  Account type
+                  <select
+                    value={customerInviteRole}
+                    onChange={(event) => {
+                      const role =
+                        event.target.value === "admin" ||
+                        event.target.value === "assistant" ||
+                        event.target.value === "moderator"
+                          ? event.target.value
+                          : "customer";
+                      setCustomerInviteRole(role);
+                      if (role === "customer") setCustomerInvitePermissions([]);
+                    }}
+                    className="w-full border border-input bg-background px-3 py-3 font-sans text-sm normal-case tracking-normal"
+                  >
+                    <option value="customer">Customer</option>
+                    <option value="admin">Admin</option>
+                    <option value="moderator">Moderator</option>
+                    <option value="assistant" disabled={assistantLimitReached}>
+                      Assistant ({assistantCount}/5)
+                    </option>
+                  </select>
+                </label>
+                {customerInviteRole !== "customer" ? (
+                  <fieldset className="space-y-3 border border-foreground/10 p-4">
+                    <legend className="px-2 font-mono text-[10px] uppercase tracking-[0.2em]">
+                      {customerInviteRole} access
+                    </legend>
+                    <p className="text-xs text-muted-foreground">
+                      Choose the sections this account can access. You can change this later.
+                    </p>
+                    {customerInviteRole === "admin" ? (
+                      <p className="text-xs text-muted-foreground">
+                        Admin accounts can manage users; other sections are limited to the
+                        permissions selected below.
+                      </p>
+                    ) : null}
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {permissionLabels.map((permission) => (
+                        <label key={permission.value} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={
+                              customerInvitePermissions.includes(permission.value) ||
+                              (customerInviteRole === "admin" &&
+                                permission.value === "manage_accounts")
+                            }
+                            disabled={
+                              customerInviteRole === "admin" &&
+                              permission.value === "manage_accounts"
+                            }
+                            onChange={(event) =>
+                              setCustomerInvitePermissions((current) =>
+                                event.target.checked
+                                  ? [...current, permission.value]
+                                  : current.filter((value) => value !== permission.value),
+                              )
+                            }
+                          />
+                          {permission.label}
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                ) : null}
                 <button
                   type="button"
                   onClick={sendCustomerInvite}
+                  disabled={customerInviteRole === "assistant" && assistantLimitReached}
                   className="w-full bg-primary px-5 py-3 font-mono text-xs uppercase tracking-[0.2em] text-primary-foreground"
                 >
-                  Send sign-in link
+                  {customerInviteRole === "customer"
+                    ? "Send sign-in link"
+                    : `Invite ${customerInviteRole}`}
                 </button>
               </div>
             </AdminPagePanel>

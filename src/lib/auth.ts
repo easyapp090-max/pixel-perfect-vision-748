@@ -4,14 +4,15 @@ import { getSupabaseConfig, isSecureBackendConfigured } from "@/lib/backend-conf
 import { getSupabaseClient } from "@/lib/supabase";
 import { getSafeAuthError } from "@/lib/user-messages";
 
-export type AccountRole = "customer" | "staff" | "admin" | "owner";
+export type AccountRole = "customer" | "staff" | "admin" | "moderator" | "owner";
 export type StorePermission =
   | "manage_products"
   | "manage_orders"
   | "view_customers"
   | "manage_discounts"
   | "manage_content"
-  | "manage_settings";
+  | "manage_settings"
+  | "manage_accounts";
 
 export type CustomerSession = {
   id: string;
@@ -46,15 +47,16 @@ const storePermissions = new Set<StorePermission>([
   "manage_discounts",
   "manage_content",
   "manage_settings",
+  "manage_accounts",
 ]);
 
-const rolePriority: AccountRole[] = ["owner", "staff", "admin", "customer"];
+const rolePriority: AccountRole[] = ["owner", "admin", "staff", "moderator", "customer"];
 
 export function hasAdminAccess(
   session: Pick<CustomerSession, "role" | "permissions"> | null,
 ): boolean {
   if (!session) return false;
-  return session.role === "owner" || session.permissions.length > 0;
+  return session.role === "owner" || session.role === "admin" || session.permissions.length > 0;
 }
 
 function authErrorMessage(message: string): AuthResult {
@@ -121,7 +123,9 @@ export async function getCurrentCustomer() {
 
 export async function getCurrentAdminSession() {
   const session = await customerSession();
-  return session && ["owner", "admin", "staff"].includes(session.role) ? session : null;
+  return session && ["owner", "admin", "staff", "moderator"].includes(session.role)
+    ? session
+    : null;
 }
 
 export async function signOutCustomer(): Promise<void> {
@@ -215,7 +219,7 @@ export async function signInCustomer(email: string, password: string): Promise<A
 export async function signInAdmin(email: string, password: string): Promise<AuthResult> {
   const result = await signInCustomer(email, password);
   if (!result.ok) return result;
-  if (!result.user || !["owner", "admin", "staff"].includes(result.user.role)) {
+  if (!result.user || !["owner", "admin", "staff", "moderator"].includes(result.user.role)) {
     await signOutCustomer();
     return authErrorMessage("These credentials are not authorized for administrator access.");
   }

@@ -15,6 +15,8 @@ describe("Supabase migration sequence", () => {
     const five = migrationText("005_first_owner_setup.sql");
     const nine = migrationText("009_campaign_images_and_profit_reporting.sql");
     const ten = migrationText("010_admin_customer_lifecycle.sql");
+    const eleven = migrationText("011_account_access_management.sql");
+    const twelve = migrationText("012_delegated_account_management.sql");
 
     expect(one).toMatch(/create table if not exists public\.products/i);
     expect(two).toMatch(/create table if not exists public\.app_roles/i);
@@ -36,6 +38,14 @@ describe("Supabase migration sequence", () => {
     expect(ten).toMatch(/full_name = 'Deleted customer'/i);
     expect(ten).toMatch(/profile_id = null/i);
     expect(ten).toMatch(/delete from auth\.users/i);
+    expect(eleven).toMatch(/create or replace function public\.set_account_access/i);
+    expect(eleven).toMatch(/public\.is_store_owner\(\)/i);
+    expect(eleven).toMatch(/public\.store_permissions/i);
+    expect(twelve).toMatch(/app_roles_role_check/i);
+    expect(twelve).toMatch(/store_permissions_permission_check/i);
+    expect(twelve).toMatch(/manage_accounts/i);
+    expect(twelve).toMatch(/moderator/i);
+    expect(twelve).toMatch(/create or replace function public\.can_manage_store_accounts/i);
     expect(one).toMatch(/requires Supabase Auth/i);
     expect(two).toMatch(/requires 001_init\.sql first/i);
     expect(two).toMatch(/pg_policies/i);
